@@ -2,6 +2,11 @@
 
 namespace TinySolutions\mlt\Controllers\Notice;
 
+// Do not allow directly accessing this file.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit( 'This script cannot be accessed directly.' );
+}
+
 use TinySolutions\mlt\Traits\SingletonTrait;
 
 /**
@@ -40,7 +45,7 @@ class Review {
 		if ( isset( $GLOBALS['tsmlt__notice'] ) ) {
 			 return;
 		}
-		// Added Lines Start
+		// Added Lines Start.
 		$nobug = get_option( 'tsmlt_spare_me' );
 
 		$rated = get_option( 'tsmlt_rated' );
@@ -61,7 +66,7 @@ class Review {
 			$remind_time = $install_date;
 		}
 
-		$remind_due = strtotime( '+20 days', $remind_time );
+		$remind_due = strtotime( '+10 days', $remind_time );
 
 		if ( ! $now > $past_date || $now < $remind_due ) {
 			return;
@@ -76,8 +81,8 @@ class Review {
 	 * @return void
 	 */
 	public function tsmlt_spare_me() {
-
-		if ( ! isset( $_REQUEST['_wpnonce'] ) || ! wp_verify_nonce( $_REQUEST['_wpnonce'], 'tsmlt_notice_nonce' ) ) {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! isset( $_REQUEST['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_REQUEST['_wpnonce'] ) ), 'tsmlt_notice_nonce' ) ) {
 			return;
 		}
 
@@ -104,6 +109,9 @@ class Review {
 		}
 	}
 
+	/**
+	 * @return false|string
+	 */
 	protected function tsmlt_current_admin_url() {
 		$uri = isset( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
 		$uri = preg_replace( '|^.*/wp-admin/|i', '', $uri );
@@ -131,7 +139,7 @@ class Review {
 	 * Display Admin Notice, asking for a review
 	 **/
 	public function tsmlt_display_admin_notice() {
-		// WordPress global variable
+		// WordPress global variable.
 		global $pagenow;
 		$exclude = [
 			'themes.php',
@@ -152,21 +160,20 @@ class Review {
 			'erase-personal-data.php',
 		];
 
-		if ( ! in_array( $pagenow, $exclude ) ) {
-
+		if ( ! in_array( $pagenow, $exclude, true ) ) {
 			$args = [ '_wpnonce' => wp_create_nonce( 'tsmlt_notice_nonce' ) ];
 
 			$dont_disturb = add_query_arg( $args + [ 'tsmlt_spare_me' => '1' ], $this->tsmlt_current_admin_url() );
 			$remind_me    = add_query_arg( $args + [ 'tsmlt_remind_me' => '1' ], $this->tsmlt_current_admin_url() );
 			$rated        = add_query_arg( $args + [ 'tsmlt_rated' => '1' ], $this->tsmlt_current_admin_url() );
-			$reviewurl    = 'https://wordpress.org/support/plugin/media-library-tools/reviews/?filter=5#new-post';
+			$reviewurl    = 'https://wordpress.org/support/plugin/media-library-tools/reviews/#new-post';
 			$plugin_name  = 'Media Library Tools';
 			?>
 			<div class="notice tsmlt-review-notice tsmlt-review-notice--extended">
 				<div class="tsmlt-review-notice_content">
-					<h3>Enjoying "<?php echo $plugin_name; ?>"? </h3>
+					<h3>Enjoying "<?php echo esc_html( $plugin_name ); ?>"? </h3>
 					<p>
-						Thank you for choosing " <strong><?php echo $plugin_name; ?></strong>". If you have indeed benefited from our services, we kindly request that you, please consider giving us a 5-star rating on WordPress.org.
+						Thank you for choosing " <strong><?php echo esc_html( $plugin_name ); ?></strong>". If you have indeed benefited from our services, we kindly request that you, please consider giving us a 5-star rating on WordPress.org.
 					</p>
 					<div class="tsmlt-review-notice_actions">
 						<a href="<?php echo esc_url( $reviewurl ); ?>"
@@ -306,11 +313,8 @@ class Review {
 			<?php
 		}
 	}
-
-	// Servay
-
+ 
 	/***
-	 * @param $mimes
 	 *
 	 * @return mixed
 	 */
@@ -387,7 +391,6 @@ class Review {
 	}
 
 	/***
-	 * @param $mimes
 	 *
 	 * @return mixed
 	 */
@@ -581,7 +584,6 @@ class Review {
 	}
 
 	/***
-	 * @param $mimes
 	 *
 	 * @return mixed
 	 */

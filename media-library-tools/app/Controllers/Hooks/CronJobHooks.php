@@ -7,6 +7,10 @@
 
 namespace TinySolutions\mlt\Controllers\Hooks;
 
+// Do not allow directly accessing this file.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit( 'This script cannot be accessed directly.' );
+}
 use TinySolutions\mlt\Helpers\Fns;
 use TinySolutions\mlt\Traits\SingletonTrait;
 
@@ -65,6 +69,7 @@ class CronJobHooks {
 		if ( ! wp_next_scheduled( $event_hook ) ) {
 			wp_clear_scheduled_hook( $event_hook );
 			wp_schedule_event( time(), 'every_six_hours', $event_hook );
+			Fns::add_to_scheduled_hook_list( $event_hook );
 		}
 	}
 
@@ -114,6 +119,7 @@ class CronJobHooks {
 			wp_clear_scheduled_hook( $file_scan_event_hook );
 			$schedule = 'daily';
 			wp_schedule_event( time(), $schedule, $file_scan_event_hook );
+			Fns::add_to_scheduled_hook_list( $file_scan_event_hook );
 		}
 	}
 
@@ -137,6 +143,7 @@ class CronJobHooks {
 		if ( ! $is_scheduled ) {
 			wp_clear_scheduled_hook( $dir_scan_event_hook );
 			wp_schedule_event( time(), 'weekly', $dir_scan_event_hook );
+			Fns::add_to_scheduled_hook_list( $dir_scan_event_hook );
 		}
 	}
 }

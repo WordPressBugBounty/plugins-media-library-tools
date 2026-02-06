@@ -2,11 +2,19 @@
 
 namespace TinySolutions\mlt\Controllers\Admin;
 
+// Do not allow directly accessing this file.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit( 'This script cannot be accessed directly.' );
+}
 use TinySolutions\mlt\Helpers\Fns;
 use TinySolutions\mlt\Traits\SingletonTrait;
 use WP_Error;
 use WP_Query;
+use WP_REST_Request;
 
+/**
+ * Class Api
+ */
 class Api {
 
 	/**
@@ -198,7 +206,7 @@ class Api {
 	 * @return true
 	 */
 	public function login_permission_callback() {
-		return current_user_can( 'upload_files' );
+		return current_user_can( 'manage_options' );
 	}
 	/**
 	 * @return false|string
@@ -334,19 +342,19 @@ class Api {
 	 */
 	public function get_dates() {
 		global $wpdb;
-		$date_query = $wpdb->prepare( "SELECT DISTINCT DATE_FORMAT( post_date, '%Y-%m') AS YearMonth FROM $wpdb->posts WHERE post_type = %s", 'attachment' );
-		$key        = 'tsmlt_date_query_' . date( '_m_Y' );
+		$date_query = $wpdb->prepare( "SELECT DISTINCT DATE_FORMAT(post_date, '%%Y-%%m') AS YearMonth FROM {$wpdb->posts} WHERE post_type = %s", 'attachment' );
+		$key        = 'tsmlt_date_query_' . gmdate( '_m_Y' );
 		$dates      = get_transient( $key );
 
 		if ( empty( $dates ) ) {
 			delete_transient( $key );
-			$get_date = $wpdb->get_col( $date_query );
+			$get_date = $wpdb->get_col( $date_query ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery -- Prepared above.
 			if ( $get_date ) {
 				$dates = [];
 				foreach ( $get_date as $date ) {
 					$dates[] = [
 						'value' => $date,
-						'label' => date( 'M Y', strtotime( $date ) ),
+						'label' => gmdate( 'M Y', strtotime( $date ) ),
 					];
 				}
 			}
@@ -390,38 +398,46 @@ class Api {
 	 * @return array
 	 */
 	private function handle_rename( $parameters ) {
-		$result = [
+		$result     = [
 			'updated' => false,
-			'message' => esc_html__( 'Rename failed. Please try to fix', 'media-library-tools' ),
+			'message' => esc_html__( 'Rename failed. Please try again.', 'media-library-tools' ),
 		];
-		if ( ! tsmlt()->has_pro() && in_array( $parameters['newname'], [ 'bulkRenameByPostTitle', 'bulkRenameBySKU' ], true ) ) {
-			$result['message'] = esc_html__( 'Please activate the license key.', 'media-library-tools' );
+		$attachment = get_post( (int) $parameters['ID'] );
+		if ( ! $attachment || empty( $parameters['newname'] ) ) {
 			return $result;
 		}
-		$attachment = get_post( $parameters['ID'] );
-		$new_name   = $parameters['newname'];
-		$rename_to  = '';
-		if ( $attachment ) {
-			$post_id = $attachment->post_parent ?: Fns::set_thumbnail_parent_id( $parameters['ID'] );
-			if ( $post_id && 'bulkRenameByPostTitle' === $new_name ) {
-				$rename_to = Fns::add_filename_prefix_suffix( get_the_title( $post_id ) );
-			} elseif ( $post_id && 'bulkRenameBySKU' === $new_name ) {
-				$rename_to = Fns::add_filename_prefix_suffix( get_post_meta( $post_id, '_sku', true ) );
-			} elseif ( ! in_array( $new_name, [ 'bulkRenameByPostTitle', 'bulkRenameBySKU' ], true ) ) {
-				$rename_to = $new_name;
-			}
-		}
-		if ( ! empty( $rename_to ) && Fns::wp_rename_attachment( $parameters['ID'], $rename_to ) ) {
+		$new_name  = sanitize_text_field( $parameters['newname'] );
+		$rename_to = $new_name; // default behavior (direct rename).
+		$post_id   = $attachment->post_parent ?: Fns::set_thumbnail_parent_id( $attachment->ID );
+		/**
+		 * Filter rename target filename.
+		 *
+		 * @param string   $rename_to  Final filename to rename to.
+		 * @param string   $new_name   Rename action or raw filename.
+		 * @param int      $post_id    Parent post ID (if exists).
+		 * @param \WP_Post  $attachment Attachment object.
+		 */
+		$rename_to = apply_filters(
+			'tsmlt_attachment_rename_to',
+			$rename_to,
+			$new_name,
+			$post_id,
+			$attachment
+		);
+		if ( ! empty( $rename_to ) && Fns::wp_rename_attachment( $attachment->ID, $rename_to ) ) {
 			$result['updated'] = true;
 			$result['message'] = esc_html__( 'Renamed.', 'media-library-tools' );
 		} else {
-			$result['message'] = esc_html__( 'Rename failed. Maybe file permission mismatch or the file doesn’t exist.', 'media-library-tools' );
+			$result['message'] = esc_html__(
+				'Rename failed. The file may not exist or file permissions may be incorrect.',
+				'media-library-tools'
+			);
 		}
 		return $result;
 	}
 
 	/**
-	 * @param $parameters
+	 * @param array $parameters pram.
 	 *
 	 * @return array
 	 */
@@ -461,10 +477,12 @@ class Api {
 	}
 
 	/**
-	 * @param $parameters
-	 * @param $result
+	 * Handles a single update operation and processes the result.
 	 *
-	 * @return mixed
+	 * @param array $parameters Data required to perform the update.
+	 * @param mixed $result     Result returned from the update process.
+	 *
+	 * @return mixed Modified or original result after processing.
 	 */
 	private function handle_single_updates( $parameters, $result ) {
 		$post_fields = [
@@ -589,7 +607,7 @@ class Api {
 		}
 
 		if ( 'meta_query' === $orderby ) {
-			$args['meta_query'] = [
+			$args['meta_query'] = [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Necessary query.
 				'relation' => 'OR',
 				[
 					'key'     => '_wp_attachment_image_alt',
@@ -603,7 +621,7 @@ class Api {
 			$args['orderby']    = 'meta_value'; // Order by meta value.
 		}
 		if ( ! empty( $parameters['categories'] ) ) {
-			$args['tax_query'] = [
+			$args['tax_query'] = [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- Necessary query.
 				[
 					'taxonomy' => tsmlt()->category,
 					'field'    => 'term_id',
@@ -622,14 +640,6 @@ class Api {
 			if ( $post->post_parent ) {
 				$parent_title     = get_the_title( $post->post_parent );
 				$parent_permalink = get_the_permalink( $post->post_parent );
-			} else {
-				/*
-				$parent_id = Fns::set_thumbnail_parent_id( $post->ID );
-				if ( $parent_id ) {
-					$parent_title     = get_the_title( $parent_id );
-					$parent_permalink = get_the_permalink( $parent_id );
-				}
-				*/
 			}
 			$thefile       = [];
 			$metadata      = get_post_meta( $post->ID, '_wp_attachment_metadata', true );
@@ -713,9 +723,8 @@ class Api {
 		return wp_json_encode( $query_data );
 	}
 
-	/***
+	/**
 	 * @param $request_data
-	 *
 	 * @return array|WP_Error
 	 */
 	public function media_submit_bulk_action( $request_data ) {
@@ -728,88 +737,121 @@ class Api {
 		if ( empty( $parameters['type'] ) || empty( $parameters['ids'] ) ) {
 			return $result;
 		}
-
-		$ids = $parameters['ids'] ?? [];
+		// Sanitize IDs.
+		$ids = array_map( 'absint', (array) $parameters['ids'] );
 		switch ( $parameters['type'] ) {
+			/**
+			 * Search Uses
+			 */
 			case 'searchUses':
 				foreach ( $ids as $id ) {
 					Fns::set_thumbnail_parent_id( $id );
 				}
 				$result['updated'] = true;
-				$result['message'] = $result['updated'] ? esc_html__( 'Updated. Be happy.', 'media-library-tools' ) : esc_html__( 'Update failed. Please try to fix', 'media-library-tools' );
+				$result['message'] = esc_html__( 'Updated. Be happy.', 'media-library-tools' );
 				break;
+			/**
+			 * Trash or Inherit
+			 */
 			case 'trash':
 			case 'inherit':
-				$query   = $wpdb->prepare(
-					"UPDATE $wpdb->posts SET post_status = %s WHERE post_type = 'attachment' AND ID IN (" . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')',
-					$parameters['type'],
-					...$ids
-				);
-				$updated = wp_cache_get( md5( $query ), 'attachment-query' );
-				if ( false === $updated ) {
-					$updated = $wpdb->query( $query );
-					wp_cache_set( md5( $query ), $updated, 'attachment-query' );
-				}
-				$result['updated'] = (bool) $updated;
-				$result['message'] = $updated ? esc_html__( 'Done. Be happy.', 'media-library-tools' ) : esc_html__( 'Failed. Please try to fix', 'media-library-tools' );
-				break;
-			case 'delete':
-				$delete = [];
+				$status = sanitize_key( $parameters['type'] );
 				foreach ( $ids as $id ) {
-					$delete[] = wp_delete_attachment( $id, true );
+					$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+						$wpdb->posts,
+						[ 'post_status' => $status ],
+						[
+							'ID'        => $id,
+							'post_type' => 'attachment',
+						],
+						[ '%s' ],
+						[ '%d', '%s' ]
+					);
 				}
-
-				$result['updated'] = count( $delete ) === count( $ids );
-				$result['message'] = $result['updated'] ? esc_html__( 'Deleted. Be happy.', 'media-library-tools' ) : esc_html__( 'Deleted failed. Please try to fix', 'media-library-tools' );
+				$result['updated'] = true;
+				$result['message'] = esc_html__( 'Done. Be happy.', 'media-library-tools' );
 				break;
+			/**
+			 * Delete attachments
+			 */
+			case 'delete':
+				$deleted = 0;
+				foreach ( $ids as $id ) {
+					if ( wp_delete_attachment( $id, true ) ) {
+						$deleted++;
+					}
+				}
+				$result['updated'] = ( count( $ids ) === $deleted );
+				$result['message'] = $result['updated']
+					? esc_html__( 'Deleted. Be happy.', 'media-library-tools' )
+					: esc_html__( 'Deleted failed. Please try to fix', 'media-library-tools' );
+				break;
+			/**
+			 * BULK EDIT (The vulnerable part — fully fixed)
+			 */
 			case 'bulkedit':
-				$data       = $parameters['data'];
-				$categories = $parameters['post_categories'];
-				$set_data   = '';
+				$data       = isset( $parameters['data'] ) ? (array) $parameters['data'] : [];
+				$categories = isset( $parameters['post_categories'] ) ? (array) $parameters['post_categories'] : [];
+				// Prepare safe fields.
+				$update_fields = [];
+				$update_format = [];
 				if ( ! empty( $data['post_title'] ) ) {
-					$set_data .= "post_title= '{$data['post_title']}', ";
+					$update_fields['post_title'] = sanitize_text_field( $data['post_title'] );
+					$update_format[]             = '%s';
 				}
 				if ( ! empty( $data['caption'] ) ) {
-					$set_data .= "post_excerpt='{$data['caption']}', ";
+					$update_fields['post_excerpt'] = sanitize_text_field( $data['caption'] );
+					$update_format[]               = '%s';
 				}
 				if ( ! empty( $data['post_description'] ) ) {
-					$set_data .= "post_content ='{$data['post_description']}', ";
+					$update_fields['post_content'] = wp_kses_post( $data['post_description'] );
+					$update_format[]               = '%s';
 				}
-				$update   = false;
-				$set_data = rtrim( $set_data, ', ' );
-				if ( ! empty( $set_data ) ) {
-					$query  = $wpdb->prepare(
-						"UPDATE $wpdb->posts SET $set_data WHERE post_type = 'attachment' AND ID IN (" . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')',
-						...$ids
-					);
-					$update = wp_cache_get( md5( $query ), 'attachment-query' );
-					if ( false === $update ) {
-						$update = $wpdb->query( $query );
-						wp_cache_set( md5( $query ), $update, 'attachment-query' );
+				$updated = false;
+				// Safe SQL updates.
+				if ( ! empty( $update_fields ) ) {
+					foreach ( $ids as $id ) {
+						$res = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+							$wpdb->posts,
+							$update_fields,
+							[
+								'ID'        => $id,
+								'post_type' => 'attachment',
+							],
+							$update_format,
+							[ '%d', '%s' ]
+						);
+						if ( false !== $res ) {
+							$updated = true;
+						}
 					}
 				}
-
-				$alt = ! empty( $data['alt_text'] ) ? $data['alt_text'] : null;
-				foreach ( $ids as $id ) {
-					if ( $alt ) {
-						$update = update_post_meta( $id, '_wp_attachment_image_alt', trim( $alt ) );
+				// ALT TEXT update.
+				if ( ! empty( $data['alt_text'] ) ) {
+					$alt_text = sanitize_text_field( $data['alt_text'] );
+					foreach ( $ids as $id ) {
+						update_post_meta( $id, '_wp_attachment_image_alt', $alt_text );
 					}
-					if ( ! empty( $categories ) ) {
-						$update = wp_set_object_terms( $id, $categories, tsmlt()->category );
-					}
+					$updated = true;
 				}
-				$result['updated'] = (bool) $update;
-				$result['message'] = $update ? esc_html__( 'Updated. Be happy.', 'media-library-tools' ) : esc_html__( 'Update failed. Please try to fix', 'media-library-tools' );
-
-				break;
-				$result = apply_filters( 'tsmlt/bulk/rename', $result, $parameters );
+				// Categories.
+				if ( ! empty( $categories ) ) {
+					foreach ( $ids as $id ) {
+						wp_set_object_terms( $id, $categories, tsmlt()->category );
+					}
+					$updated = true;
+				}
+				$result['updated'] = $updated;
+				$result['message'] = $updated
+					? esc_html__( 'Updated. Be happy.', 'media-library-tools' )
+					: esc_html__( 'Update failed. Please try to fix', 'media-library-tools' );
 				break;
 			default:
+				// Unknown operation.
+				break;
 		}
-
 		return $result;
 	}
-
 	/**
 	 * @return false|string
 	 */
@@ -918,13 +960,12 @@ class Api {
 	 */
 	public function get_rubbish_filetype() {
 		global $wpdb;
-		$cache_key  = 'tsmlt_unlisted_filetypes';
-		$table_name = $wpdb->prefix . 'tsmlt_unlisted_file';
-		// Check if the file_path already exists in the table using cached data.
-		$types = wp_cache_get( $cache_key );
-		if ( ! $types ) {
-			$types = $wpdb->get_col( "SELECT DISTINCT file_type FROM $table_name" );
-			// Cache the query result.
+		$cache_key = 'tsmlt_unlisted_filetypes';
+		// Table name is fully controlled by the plugin.
+		$table_name = esc_sql( $wpdb->prefix . 'tsmlt_unlisted_file' );
+		$types      = wp_cache_get( $cache_key );
+		if ( false === $types ) {
+			$types = $wpdb->get_col( "SELECT DISTINCT file_type FROM {$table_name}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery
 			wp_cache_set( $cache_key, $types );
 		}
 		$rubbish_data = [
@@ -934,80 +975,70 @@ class Api {
 	}
 
 	/**
-	 * @return false|string
+	 * Retrieve rubbish files with pagination and filtering.
+	 *
+	 * @param WP_REST_Request $request_data REST request object.
+	 *
+	 * @return false|string JSON-encoded response.
 	 */
 	public function get_rubbish_file( $request_data ) {
 		global $wpdb;
 		$parameters = $request_data->get_params();
+		$options    = get_option( 'tsmlt_settings' );
+		$limit      = absint( $options['rubbish_per_page'] ?? 20 );
+		$page       = max( 1, absint( $parameters['paged'] ?? 1 ) );
+		$offset     = ( $page - 1 ) * $limit;
+		$status     = sanitize_text_field( $parameters['fileStatus'] ?? 'show' );
+		$statuses   = [ $status ];
+		$extensions = ! empty( $parameters['filterExtension'] )
+			? [ sanitize_text_field( $parameters['filterExtension'] ) ]
+			: Fns::default_file_extensions();
+		$table_name = $wpdb->prefix . 'tsmlt_unlisted_file';
+		// Build placeholders once (must exist for both queries).
+		$status_placeholders = implode( ',', array_fill( 0, count( $statuses ), '%s' ) );
+		$type_placeholders   = implode( ',', array_fill( 0, count( $extensions ), '%s' ) );
 
-		$options = get_option( 'tsmlt_settings' );
-		$limit   = absint( $options['rubbish_per_page'] ?? 20 );
+		$cache_key = 'tsmlt_unlisted_file_' . md5( serialize( [ $statuses, $extensions, $page ] ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize -- Safe use.
 
-		$status = $parameters['fileStatus'] ?? 'show';
-
-		$extensions = ! empty( $parameters['filterExtension'] ) ? [ $parameters['filterExtension'] ] : Fns::default_file_extensions();
-
-		// Add single quotes around each status value.
-		$extensions = array_map(
-			function ( $extension ) {
-				return "'" . esc_sql( $extension ) . "'";
-			},
-			$extensions
-		);
-
-		$extensions = implode( ', ', $extensions );
-
-		$page   = $parameters['paged'] ?? 1;
-		$offset = ( $page - 1 ) * $limit; // Calculate the offset based on the page number.
-
-		$cache_key   = 'tsmlt_unlisted_file';
-		$table_name  = $wpdb->prefix . 'tsmlt_unlisted_file';
-		$in_statuses = [ $status ]; // Add the status values to exclude.
-
-		// Add single quotes around each status value.
-		$in_statuses = array_map(
-			function ( $status ) {
-				return "'" . esc_sql( $status ) . "'";
-			},
-			$in_statuses
-		);
-
-		$placeholders_status = implode( ', ', $in_statuses );
-
-		// Check if the file_path already exists in the table using cached data.
 		$existing_row = wp_cache_get( $cache_key );
-		if ( ! $existing_row ) {
-			$query        = $wpdb->prepare(
-				"SELECT * FROM $table_name WHERE status IN ( $placeholders_status ) AND file_type IN ( $extensions ) LIMIT %d OFFSET %d",
-				$limit,
-				$offset
-			);
-			$existing_row = $wpdb->get_results( $query );
-			// Cache the query result.
+
+		if ( false === $existing_row ) {
+			$sql = "
+			SELECT *
+			FROM {$table_name}
+			WHERE status IN ($status_placeholders)
+			  AND file_type IN ($type_placeholders)
+			LIMIT %d OFFSET %d";
+			$existing_row = $wpdb->get_results( $wpdb->prepare( $sql, array_merge( $statuses, $extensions, [ $limit, $offset ] ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.NotPrepared -- Prepared above.
 			wp_cache_set( $cache_key, $existing_row );
 		}
 
-		// Media File Count.
-		$total_file_cache = $cache_key . '_total';
-		// Check if the file_path already exists in the table using cached data.
-		$total_file = wp_cache_get( $total_file_cache );
-		if ( ! $total_file ) {
-			// Query to retrieve total number of posts.
-			$total_query = $wpdb->prepare( "SELECT COUNT(*) as total_count FROM $table_name WHERE status IN ( $placeholders_status ) AND file_type IN ( $extensions )", $table_name );
-			$total_file  = $wpdb->get_var( $total_query );
-			wp_cache_set( $total_file_cache, $total_file );
+		/* ---------- COUNT QUERY ---------- */
+
+		$total_cache_key = $cache_key . '_total';
+		$total_file      = wp_cache_get( $total_cache_key );
+
+		if ( false === $total_file ) {
+			$count_sql = "
+			SELECT COUNT(*)
+			FROM {$table_name}
+			WHERE status IN ($status_placeholders)
+			  AND file_type IN ($type_placeholders)
+		";
+			$total_file = (int) $wpdb->get_var( $wpdb->prepare( $count_sql, array_merge( $statuses, $extensions ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.NotPrepared -- Prepared above.
+			wp_cache_set( $total_cache_key, $total_file );
 		}
 
-		$rubbish_data = [
-			'mediaFile'    => is_array( $existing_row ) ? $existing_row : [],
-			'paged'        => absint( $page ),
-			'totalPost'    => absint( $total_file ),
-			'postsPerPage' => absint( $limit ),
-		];
-
-		return wp_json_encode( $rubbish_data );
+		return wp_json_encode(
+			[
+				'mediaFile'    => is_array( $existing_row ) ? $existing_row : [],
+				'paged'        => $page,
+				'totalPost'    => $total_file,
+				'postsPerPage' => $limit,
+			]
+		);
 	}
-
+	
 	/**
 	 * @return array
 	 */
@@ -1032,10 +1063,13 @@ class Api {
 		// Get the table name with prefix.
 		$table_name = $wpdb->prefix . 'tsmlt_unlisted_file';
 		// Ensure the table exists before deleting rows.
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching  -- Prepared above.
 		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
 			// Execute the DELETE query to remove all rows.
+			// phpcs:ignore PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Direct query for truncation.
 			$result = $wpdb->query( "DELETE FROM `$table_name`" );
-			$wpdb->query( "ALTER TABLE `$table_name` AUTO_INCREMENT = 1" );
+			// phpcs:ignore PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			$wpdb->query( "ALTER TABLE `$table_name` AUTO_INCREMENT = 1" ); // Reset auto-increment.
 			// Return true if the query succeeded, false otherwise.
 		}
 		update_option( 'tsmlt_get_directory_list', [] );

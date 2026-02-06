@@ -1,0 +1,18 @@
+{
+  "name": "tinysolutions/media-library-tools",
+  "authors": [
+    {
+      "name": "TinySolutions",
+      "email": "wptinysolution@gmail.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "TinySolutions\\mlt\\": "app"
+    }
+  },
+  "description": "",
+  "require": {
+    "enshrined/svg-sanitize": "^0.20.0"
+  }
+}

@@ -17,13 +17,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Fns class
+ * Fns Helpers class
+ *
+ * Provides utility helpers for media operations, attachment renaming,
+ * scanning directories, Elementor cleanup, WPML sync, and scheduled tasks.
+ *
+ * @package TinySolutions\WM
  */
 class Fns {
 	/**
 	 * @var array
 	 */
-	private static $cache                    = [];
+	private static $cache = [];
+	/**
+	 * @var string
+	 */
 	private static $useless_types_conditions = "
 		post_status NOT IN ('inherit', 'trash', 'auto-draft')
 		AND post_type NOT IN ('attachment', 'shop_order', 'shop_order_refund', 'nav_menu_item', 'revision', 'auto-draft', 'wphb_minify_group', 'customize_changeset', 'oembed_cache', 'nf_sub', 'jp_img_sitemap')
@@ -34,7 +42,7 @@ class Fns {
 	";
 
 	/**
-	 * @param $plugin_file_path
+	 * @param string $plugin_file_path string.
 	 *
 	 * @return bool
 	 */
@@ -43,11 +51,38 @@ class Fns {
 
 		return isset( $installed_plugins_list[ $plugin_file_path ] );
 	}
-
+	/**
+	 * Action.
+	 *
+	 * @param string $action action.
+	 * @return void
+	 */
+	public static function add_to_scheduled_hook_list( $action ) {
+		if ( empty( $action ) ) {
+			return;
+		}
+		$schedule   = get_option( 'tsmlt_cron_schedule', [] );
+		$schedule[] = $action;
+		update_option( 'tsmlt_cron_schedule', array_unique( $schedule ) );
+	}
+	/**
+	 * Clear Scheduled Events
+	 *
+	 * @return void
+	 */
+	public static function clear_scheduled_events() {
+		$schedule = get_option( 'tsmlt_cron_schedule', [] );
+		if ( empty( $schedule ) ) {
+			return;
+		}
+		foreach ( $schedule as $v ) {
+			wp_clear_scheduled_hook( $v );
+		}
+	}
 	/**
 	 * Image attachment details
 	 *
-	 * @param init $attachment_id image id.
+	 * @param int $attachment_id image id.
 	 *
 	 * @return array
 	 */
@@ -78,9 +113,9 @@ class Fns {
 			'element_id'   => $attachment_id,
 			'element_type' => 'attachment',
 		];
-		$info = apply_filters( 'wpml_element_language_details', null, $args );
+		$info = apply_filters( 'wpml_element_language_details', null, $args ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
 		if ( ! empty( $info->trid ) ) {
-			$translations = apply_filters( 'wpml_get_element_translations', null, $info->trid, 'post_attachment' );
+			$translations = apply_filters( 'wpml_get_element_translations', null, $info->trid, 'post_attachment' ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
 			foreach ( $translations as $translation ) {
 				if ( $attachment_id != $translation->element_id ) {
 					update_post_meta(
@@ -106,87 +141,67 @@ class Fns {
 		}
 	}
 	/**
-	 * @param $field
-	 * @param $orig_image_url
-	 * @param $new_image_url
+	 * Search post IDs where an image URL exists in content or excerpt.
 	 *
-	 * @return array
+	 * @param string $orig_image_url Original image URL.
+	 *
+	 * @return array<int> List of post IDs.
 	 */
 	public static function search_image_at_content( $orig_image_url ) {
 		global $wpdb;
+		/**
+		 * This condition is internally defined, static,
+		 * and does not contain user input.
+		 *
+		 * Example: post_type NOT IN ('revision','nav_menu_item')
+		 */
 		$useless_types_conditions = self::$useless_types_conditions;
-		// Get the IDs that require an update.
-		$query = $wpdb->prepare(
-			"SELECT ID FROM $wpdb->posts WHERE (post_content LIKE %s OR post_excerpt LIKE %s)
-    				AND {$useless_types_conditions}",
-			'%' . $orig_image_url . '%',
-			'%' . $orig_image_url . '%'
+		$sql                      = "SELECT ID FROM {$wpdb->posts} WHERE ( post_content LIKE %s OR post_excerpt LIKE %s ) AND {$useless_types_conditions} ";
+		$query                    = $wpdb->prepare(
+			$sql, // phpcs:ignore WordPress.DB.PreparedSQL -- Prepared below.
+			'%' . $wpdb->esc_like( $orig_image_url ) . '%',
+			'%' . $wpdb->esc_like( $orig_image_url ) . '%'
 		);
-		$ids   = $wpdb->get_col( $query );
-		if ( empty( $ids ) ) {
-			return [];
-		}
-
-		return $ids;
+		$ids                      = $wpdb->get_col( $query ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.NotPrepared -- Prepared above.
+		return empty( $ids ) ? [] : $ids;
 	}
 
 	/**
-	 * @param $field
-	 * @param $orig_image_url
-	 * @param $new_image_url
+	 * Replace an image URL inside post content or excerpt.
 	 *
-	 * @return array
+	 * @param string $field          Database field name (post_content or post_excerpt).
+	 * @param string $orig_image_url Original image URL.
+	 * @param string $new_image_url  New image URL.
+	 *
+	 * @return int Number of affected rows.
 	 */
 	private static function replace_image_at_content( $field, $orig_image_url, $new_image_url ) {
 		global $wpdb;
-		// replace_image_at_content() ;
-		// Validate the field to prevent SQL injection.
-		if ( ! in_array( $field, [ 'post_content', 'post_excerpt' ], true ) ) {
-			return [];
+		// Strict whitelist to prevent SQL injection.
+		$allowed_fields = [
+			'post_content',
+			'post_excerpt',
+		];
+		if ( ! in_array( $field, $allowed_fields, true ) ) {
+			return 0;
 		}
+		/**
+		 * Static, internal SQL fragment.
+		 * Contains no user input.
+		 */
 		$useless_types_conditions = self::$useless_types_conditions;
-		// Get the IDs that require an update.
-		$query = $wpdb->prepare(
-			"SELECT ID FROM $wpdb->posts
-        WHERE {$field} LIKE '%s'
-        AND {$useless_types_conditions}",
-			'%' . $orig_image_url . '%'
+		$sql                      = " UPDATE {$wpdb->posts} SET {$field} = REPLACE( {$field}, %s, %s ) WHERE {$field} LIKE %s AND {$useless_types_conditions} ";
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Column name is strictly whitelisted.
+		return (int) $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- Prepared below.
+			$wpdb->prepare(
+				$sql, // phpcs:ignore WordPress.DB.PreparedSQL -- Prepared below.
+				$orig_image_url,
+				$new_image_url,
+				'%' . $wpdb->esc_like( $orig_image_url ) . '%'
+			)
 		);
-		$ids   = $wpdb->get_col( $query );
-		if ( empty( $ids ) ) {
-			return [];
-		}
-
-		// Prepare SQL (WHERE IN).
-		$ids_to_update = array_map(
-			function ( $id ) {
-				return "'" . esc_sql( $id ) . "'";
-			},
-			$ids
-		);
-		$ids_to_update = implode( ',', $ids_to_update );
-
-		// Execute updates.
-		$query = $wpdb->prepare(
-			"UPDATE $wpdb->posts
-        SET {$field} = REPLACE({$field}, '%s', '%s')
-        WHERE ID IN (" . $ids_to_update . ')',
-			$orig_image_url,
-			$new_image_url
-		);
-		$wpdb->query( $query );
-
-		// Reverse updates.
-		$query_revert = $wpdb->prepare(
-			"UPDATE $wpdb->posts
-        SET {$field} = REPLACE({$field}, '%s', '%s')
-        WHERE ID IN (" . $ids_to_update . ')',
-			$orig_image_url,
-			$new_image_url
-		);
-
-		return $ids;
 	}
+
 	/**
 	 * Search for occurrences of the original image URL in Elementor metadata.
 	 *
@@ -204,20 +219,15 @@ class Fns {
 		$orig_image_url           = esc_sql( $orig_image_url );
 		$orig_image_url           = str_replace( '/', '\/', $orig_image_url );
 		$searchValue              = '%' . str_replace( '\/', '\\\/', $orig_image_url ) . '%';
-
-		$query = $wpdb->prepare(
-			"SELECT m.post_id FROM {$table_meta} AS m
-		JOIN {$table_posts} AS p ON m.post_id = p.ID
-		WHERE m.meta_key = '_elementor_data'
-		AND m.meta_value LIKE %s
-		AND {$useless_types_conditions}",
-			$searchValue
-		);
-		return $wpdb->get_col( $query );
+		return $wpdb->get_col( $wpdb->prepare( "SELECT m.post_id FROM {$table_meta} AS m JOIN {$table_posts} AS p ON m.post_id = p.ID WHERE m.meta_key = '_elementor_data' AND m.meta_value LIKE %s AND {$useless_types_conditions}", $searchValue ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL -- Prepared above.
 	}
+
 	/**
-	 * @param $orig_image_url
-	 * @param $new_image_url
+	 * Update Elementor post meta data by replacing image URLs
+	 * and force Elementor to regenerate CSS and cache.
+	 *
+	 * @param string $orig_image_url Original image URL.
+	 * @param string $new_image_url  New image URL.
 	 *
 	 * @return void
 	 */
@@ -226,30 +236,18 @@ class Fns {
 			return;
 		}
 		global $wpdb;
-		$table_meta = $wpdb->postmeta;
-
-		$orig_image_url = esc_sql( $orig_image_url );
-		$new_image_url  = esc_sql( $new_image_url );
-		$orig_image_url = str_replace( '/', '\/', $orig_image_url );
-		$new_image_url  = str_replace( '/', '\/', $new_image_url );
-		$searchValue    = '%' . str_replace( '\/', '\\\/', $orig_image_url ) . '%';
-
-		$query = $wpdb->prepare(
-			"UPDATE {$table_meta}
-		  SET meta_value = REPLACE(meta_value, %s, %s)
-		  WHERE meta_key = '_elementor_data'
-		  AND meta_value LIKE %s",
-			$orig_image_url,
-			$new_image_url,
-			$searchValue
-		);
-		$wpdb->query( $query );
-
-		// Elementor to regenerate
-		$query = "DELETE FROM $wpdb->postmeta WHERE meta_key = '_elementor_css'";
-		$wpdb->query( $query );
-		$query = "DELETE FROM $wpdb->postmeta WHERE meta_key = '_elementor_element_cache'";
-		$wpdb->query( $query );
+		/**
+		 * Trusted core table name.
+		 * Provided by $wpdb, contains no user input.
+		 */
+		$table_meta   = $wpdb->postmeta;
+		$search_value = '%' . $wpdb->esc_like( $orig_image_url ) . '%';
+		$sql          = "UPDATE {$table_meta} SET meta_value = REPLACE( meta_value, %s, %s ) WHERE meta_key = '_elementor_data' AND meta_value LIKE %s";
+		$query        = $wpdb->prepare( $sql, $orig_image_url, $new_image_url, $search_value ); // phpcs:ignore WordPress.DB.PreparedSQL -- Prepared below.
+		$wpdb->query( $query ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.NotPrepared -- Prepared above.
+		// Force Elementor to regenerate CSS and cache.
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table_meta} WHERE meta_key = %s", '_elementor_css' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is trusted ($wpdb->postmeta).
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table_meta} WHERE meta_key = %s", '_elementor_element_cache' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is trusted ($wpdb->postmeta).
 	}
 
 	/**
@@ -322,7 +320,7 @@ class Fns {
 		$path_being_saved_to = dirname( $file_path );
 		$unique_filename     = $path_being_saved_to . '/' . wp_unique_filename( $path_being_saved_to, $new_file_name );
 
-		$renamed          = rename( $file_path, $unique_filename );
+		$renamed          = rename( $file_path, $unique_filename ); // phpcs:ignore WordPress.WP.AlternativeFunctions -- Using rename function to rename the file.
 		$new_file_name    = basename( $unique_filename );
 		$new_filebasename = basename( $new_file_name, '.' . $fileextension );
 
@@ -363,7 +361,11 @@ class Fns {
 						}
 					}
 				} catch ( \Exception $e ) {
-					error_log( 'Error reading data: ' . $e->getMessage() );
+					wp_trigger_error(
+						__METHOD__,
+						'Error reading data: ' . $e->getMessage(),
+						E_USER_WARNING
+					);
 				}
 			} else {
 				// For non-image files, just update the attached file path.
@@ -386,7 +388,7 @@ class Fns {
 	public static function permalink_to_post_guid( $post_id ) {
 		global $wpdb;
 		$guid    = wp_get_attachment_url( $post_id );
-		$updated = $wpdb->update( $wpdb->posts, [ 'guid' => $guid ], [ 'ID' => $post_id ] );
+		$updated = $wpdb->update( $wpdb->posts, [ 'guid' => $guid ], [ 'ID' => $post_id ] ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.NotPrepared -- Prepared above.
 		clean_post_cache( $post_id );
 
 		return $updated;
@@ -444,7 +446,7 @@ class Fns {
 	/**
 	 * Get the WP_Filesystem instance
 	 *
-	 * @return WP_Filesystem|WP_Filesystem_Direct The WP_Filesystem instance
+	 * @return \WP_Filesystem|WP_Filesystem_Direct The WP_Filesystem instance
 	 */
 	public static function get_wp_filesystem_instance() {
 		global $wp_filesystem;
@@ -457,7 +459,7 @@ class Fns {
 		// Check if WP_Filesystem_Direct is already instantiated.
 		if ( $wp_filesystem instanceof WP_Filesystem_Base && $wp_filesystem instanceof WP_Filesystem_Direct ) {
 			if ( method_exists( $wp_filesystem, 'request_filesystem_credentials' ) ) {
-				$wp_filesystem = new WP_Filesystem_Direct( null );
+				$wp_filesystem = new WP_Filesystem_Direct( null ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride -- Overriding global variable intentionally.
 			}
 		}
 
@@ -528,7 +530,7 @@ class Fns {
 
 		$upload_dir      = wp_upload_dir();
 		$uploaddir       = $upload_dir['basedir'] ?? 'wp-content/uploads/';
-		$instantDeletion = tsmlt()->has_pro() && wp_doing_ajax() && 'instant' === ( $_REQUEST['instantDeletion'] ?? '' );
+		$instantDeletion = 'instant' === sanitize_text_field( wp_unslash( $_REQUEST['instantDeletion'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$table_name      = $wpdb->prefix . 'tsmlt_unlisted_file';
 		foreach ( $found_files as $file_path ) {
 			if ( ! file_exists( $file_path ) ) {
@@ -546,7 +548,7 @@ class Fns {
 			}
 			if ( ! $attachment_id ) {
 				$search_basename = basename( $search_string );
-				$attachment_id   = $wpdb->get_var(
+				$attachment_id   = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.NotPrepared -- Prepared below.
 					$wpdb->prepare(
 						"SELECT post_id FROM {$wpdb->postmeta}
 				            WHERE meta_key = '_wp_attachment_metadata'
@@ -562,19 +564,19 @@ class Fns {
 
 			$metadata_file = basename( $file_path );
 			$fileextension = pathinfo( $metadata_file, PATHINFO_EXTENSION );
-			if ( $instantDeletion && in_array( $fileextension, self::default_file_extensions(), true ) ) {
-				wp_delete_file( $file_path );
-				$wpdb->delete( $table_name, [ 'file_path' => $file_path ], [ '%s' ] );
+
+			$matchFileExtension = in_array( $fileextension, self::default_file_extensions(), true );
+			if ( $instantDeletion && wp_doing_ajax() && $matchFileExtension ) {
+				do_action( 'tsmlt_do_ajax_instant_action', $file_path, $table_name );
 				continue;
 			}
-
 			$cache_key  = 'tsmlt_existing_row_' . sanitize_title( $file_path );
 			$table_name = $wpdb->prefix . 'tsmlt_unlisted_file';
-			// Check if the file_path already exists in the table using cached data
+			// Check if the file_path already exists in the table using cached data.
 			$existing_row = wp_cache_get( $cache_key );
 			if ( ! $existing_row ) {
-				$existing_row = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM $table_name WHERE file_path = %s", $search_string ) );
-				// Cache the query result
+				$existing_row = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM $table_name WHERE file_path = %s", $search_string ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL -- Prepared above.
+				// Cache the query result.
 				if ( $existing_row ) {
 					continue;
 				}
@@ -582,9 +584,9 @@ class Fns {
 					'file_path'     => $search_string,
 					'attachment_id' => 0,
 					'file_type'     => pathinfo( $search_string, PATHINFO_EXTENSION ),
-					'meta_data'     => serialize( [] ),
+					'meta_data'     => serialize( [] ), // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize -- Using serialize to store array data.
 				];
-				$wpdb->insert( $table_name, $save_data );
+				$wpdb->insert( $table_name, $save_data ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
 				wp_cache_set( $cache_key, $existing_row );
 			}
@@ -677,12 +679,12 @@ class Fns {
 		}
 
 		global $wpdb;
-		$query     = $wpdb->prepare( "SELECT post_id FROM $wpdb->postmeta WHERE meta_key = %s AND meta_value = %d", '_thumbnail_id', $attachment_id );
-		$parent_id = $wpdb->get_var( $query );
-		$post_ids  = [];
+		$query          = $wpdb->prepare( "SELECT post_id FROM $wpdb->postmeta WHERE meta_key = %s AND meta_value = %d", '_thumbnail_id', $attachment_id );
+		$parent_id      = $wpdb->get_var( $query ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.NotPrepared -- Prepared above.
+		$post_ids       = [];
+		$orig_image_url = wp_get_attachment_url( $attachment_id );
 		if ( ! $parent_id ) {
-			$orig_image_url = wp_get_attachment_url( $attachment_id );
-			$post_ids       = self::search_image_at_content( $orig_image_url );
+			$post_ids = self::search_image_at_content( $orig_image_url );
 		}
 		if ( empty( $post_ids ) ) {
 			$post_ids = self::search_elementor_metadata( $orig_image_url );
@@ -830,7 +832,7 @@ class Fns {
 			return self::$cache[ $keys_attachment ];
 		}
 		global $wpdb;
-		$meta_keys = $wpdb->get_col(
+		$meta_keys = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
 				"  SELECT DISTINCT pm.meta_key  FROM {$wpdb->postmeta} pm INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id WHERE p.post_type = %s",
 				'attachment'

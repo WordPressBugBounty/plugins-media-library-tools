@@ -10,8 +10,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit( 'This script cannot be accessed directly.' );
 }
 
-require_once TSMLT_PATH . 'vendor/autoload.php';
-
 use TinySolutions\mlt\Controllers\Admin\Api;
 use TinySolutions\mlt\Controllers\Admin\RegisterPostAndTax;
 use TinySolutions\mlt\Controllers\Admin\SubMenu;
@@ -24,6 +22,7 @@ use TinySolutions\mlt\Controllers\Hooks\Ajax;
 use TinySolutions\mlt\Controllers\Installation;
 use TinySolutions\mlt\Controllers\Notice\Review;
 use TinySolutions\mlt\Controllers\Notice\SpecialDiscount;
+use TinySolutions\mlt\Modules\ModuleInit;
 use TinySolutions\mlt\Traits\SingletonTrait;
 
 if ( ! class_exists( Tsmlt::class ) ) {
@@ -61,9 +60,7 @@ if ( ! class_exists( Tsmlt::class ) ) {
 		 */
 		private function __construct() {
 			$this->current_theme = wp_get_theme()->get( 'TextDomain' );
-			// add_action( 'init', [ $this, 'language' ] );
 			add_action( 'plugins_loaded', [ $this, 'init' ], 100 );
-			add_action( 'plugins_loaded', [ Installation::class, 'migration' ], 100 );
 		}
 
 		/**
@@ -95,14 +92,7 @@ if ( ! class_exists( Tsmlt::class ) ) {
 		public function plugin_path() {
 			return untrailingslashit( plugin_dir_path( TSMLT_FILE ) );
 		}
-
-		/**
-		 * Load Text Domain
-		 */
-		public function language() {
-			load_plugin_textdomain( 'media-library-tools', false, TSMLT_ABSPATH . '/languages/' );
-		}
-
+		
 		/**
 		 * Init
 		 *
@@ -116,6 +106,7 @@ if ( ! class_exists( Tsmlt::class ) ) {
 			do_action( 'tsmlt/before_loaded' );
 			Ajax::instance();
 			Api::instance();
+			ModuleInit::instance();
 			FilterHooks::init_hooks();
 			ActionHooks::instance();
 			CronJobHooks::instance();
@@ -163,7 +154,3 @@ if ( ! class_exists( Tsmlt::class ) ) {
 	tsmlt();
 }
 
-// Register Plugin Active Hook.
-register_activation_hook( TSMLT_FILE, [ Installation::class, 'activate' ] );
-// Register Plugin Deactivate Hook.
-register_deactivation_hook( TSMLT_FILE, [ Installation::class, 'deactivation' ] );
