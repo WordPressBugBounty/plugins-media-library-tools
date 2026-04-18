@@ -19,6 +19,9 @@ use TinySolutions\mlt\Modules\Rename\RenameModule;
 use TinySolutions\mlt\Modules\ImageSize\ImageSizeModule;
 use TinySolutions\mlt\Modules\UsedWhere\UsedWhereScanner;
 use TinySolutions\mlt\Modules\Regenerate\RegenerateThumbnails;
+use TinySolutions\mlt\Modules\ExifData\ExifDataReader;
+use TinySolutions\mlt\Modules\ExifData\ExifScanner;
+use TinySolutions\mlt\Modules\ExifData\ExifStripper;
 use TinySolutions\mlt\Traits\SingletonTrait;
 use TinySolutions\mlt\Controllers\Admin\Api;
 use TinySolutions\mlt\Controllers\AI\AiApi;
@@ -90,6 +93,20 @@ class Ajax {
 		// Regenerate thumbnails.
 		add_action( 'wp_ajax_tsmlt_regenerate_batch', [ $this, 'regenerate_batch' ] );
 		add_action( 'wp_ajax_tsmlt_regenerate_get_status', [ $this, 'regenerate_get_status' ] );
+
+		// EXIF data reading.
+		add_action( 'wp_ajax_tsmlt_get_exif_data', [ $this, 'get_exif_data' ] );
+
+		// EXIF scanning.
+		add_action( 'wp_ajax_tsmlt_exif_scan_batch', [ $this, 'exif_scan_batch' ] );
+		add_action( 'wp_ajax_tsmlt_exif_get_status', [ $this, 'exif_get_status' ] );
+		add_action( 'wp_ajax_tsmlt_exif_clear_scan', [ $this, 'exif_clear_scan' ] );
+		add_action( 'wp_ajax_tsmlt_exif_get_results', [ $this, 'exif_get_results' ] );
+
+		// EXIF stripping (single image — free feature).
+		add_action( 'wp_ajax_tsmlt_strip_exif_single', [ $this, 'strip_exif_single' ] );
+		add_action( 'wp_ajax_tsmlt_exif_strip_single', [ $this, 'strip_exif_single' ] );
+		add_action( 'wp_ajax_tsmlt_check_strippable_exif', [ $this, 'check_strippable_exif' ] );
 	}
 
 	// -------------------------------------------------------------------------
@@ -602,6 +619,96 @@ class Ajax {
 			'total'       => RegenerateThumbnails::instance()->get_total(),
 			'image_sizes' => $sizes,
 		] );
+	}
+
+	// -------------------------------------------------------------------------
+	// EXIF Data Reading
+	// -------------------------------------------------------------------------
+
+	/** @return void */
+	public function get_exif_data(): void {
+		$params        = $this->verify_and_get_params();
+		$attachment_id = absint( $params['attachment_id'] ?? 0 );
+
+		if ( ! $attachment_id ) {
+			wp_send_json_error( [ 'message' => esc_html__( 'Missing attachment_id.', 'media-library-tools' ) ], 400 );
+		}
+
+		$this->send( ExifDataReader::instance()->get_exif_data( $attachment_id ) );
+	}
+
+	// -------------------------------------------------------------------------
+	// EXIF Scanning
+	// -------------------------------------------------------------------------
+
+	/** @return void */
+	public function exif_scan_batch(): void {
+		$params     = $this->verify_and_get_params();
+		$offset     = absint( $params['offset'] ?? 0 );
+		$batch_size = min( absint( $params['batch_size'] ?? 50 ), 100 );
+		$this->send( ExifScanner::instance()->scan_batch( $offset, $batch_size ) );
+	}
+
+	/** @return void */
+	public function exif_get_status(): void {
+		$this->verify_and_get_params();
+		$this->send( ExifScanner::instance()->get_scan_status() );
+	}
+
+	/** @return void */
+	public function exif_clear_scan(): void {
+		$this->verify_and_get_params();
+		$this->send( ExifScanner::instance()->clear_scan() );
+	}
+
+	/** @return void */
+	public function exif_get_results(): void {
+		$params  = $this->verify_and_get_params();
+		$limit   = absint( $params['limit'] ?? 20 );
+		$offset  = absint( $params['offset'] ?? 0 );
+		$sort    = sanitize_text_field( $params['sort'] ?? 'default' );
+		$order   = in_array( strtoupper( $params['order'] ?? '' ), [ 'ASC', 'DESC' ], true ) ? strtoupper( $params['order'] ) : 'DESC';
+		$filter  = in_array( $params['filter'] ?? '', [ 'all', 'with_exif', 'without_exif' ], true ) ? $params['filter'] : 'all';
+		$search  = sanitize_text_field( $params['search'] ?? '' );
+		$result  = ExifDataReader::instance()->get_images_with_exif( $limit, $offset, $sort, $order, $filter, $search );
+		$total   = null !== $result['filtered_total']
+			? $result['filtered_total']
+			: ExifDataReader::instance()->get_attachment_count();
+		$this->send(
+			[
+				'images' => $result['images'],
+				'total'  => $total,
+			]
+		);
+	}
+
+	// -------------------------------------------------------------------------
+	// EXIF Stripping (Single Image)
+	// -------------------------------------------------------------------------
+
+	/** @return void */
+	public function strip_exif_single(): void {
+		$params        = $this->verify_and_get_params();
+		$attachment_id = absint( $params['attachment_id'] ?? 0 );
+
+		if ( ! $attachment_id ) {
+			wp_send_json_error( [ 'message' => esc_html__( 'Missing attachment_id.', 'media-library-tools' ) ], 400 );
+		}
+
+		$this->send( ExifStripper::instance()->strip_exif_from_attachment( $attachment_id ) );
+	}
+
+
+	/** @return void */
+	public function check_strippable_exif(): void {
+		$params        = $this->verify_and_get_params();
+		$attachment_id = absint( $params['attachment_id'] ?? 0 );
+
+		if ( ! $attachment_id ) {
+			wp_send_json_error( [ 'message' => esc_html__( 'Missing attachment_id.', 'media-library-tools' ) ], 400 );
+		}
+
+		$this->send( ExifStripper::instance()->check_strippable_exif( $attachment_id ) );
 	}
 
 }
