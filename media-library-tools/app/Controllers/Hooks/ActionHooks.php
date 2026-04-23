@@ -95,9 +95,6 @@ class ActionHooks {
 			);
 		}
 
-		// Get nonce for the button.
-		$nonce = wp_create_nonce( 'tsmlt_strip_exif_' . $attachment_id );
-
 		ob_start();
 		?>
 		<div style="padding:10px 12px;background:#f6f7f7;border:1px solid #dcdcde;border-radius:3px;">
@@ -106,7 +103,6 @@ class ActionHooks {
 				class="button button-secondary"
 				id="tsmlt-strip-exif-btn-<?php echo absint( $attachment_id ); ?>"
 				data-attachment-id="<?php echo absint( $attachment_id ); ?>"
-				data-nonce="<?php echo esc_attr( $nonce ); ?>"
 				style="display:inline-block;margin-bottom:8px;">
 				<?php esc_html_e( 'Remove EXIF Data', 'media-library-tools' ); ?>
 			</button>
@@ -156,7 +152,11 @@ class ActionHooks {
 							? 'padding:8px;background:#d4edda;border:1px solid #c3e6cb;border-radius:3px;color:#155724;'
 							: 'padding:8px;background:#f8d7da;border:1px solid #f5c6cb;border-radius:3px;color:#721c24;';
 
-						msgDiv.innerHTML = '<div style="' + msgStyle + '">' + (data.data?.message || data.data) + '</div>';
+						const msgEl = document.createElement('div');
+						msgEl.style.cssText = msgStyle;
+						msgEl.textContent = data.data?.message || data.data || '';
+						msgDiv.innerHTML = '';
+						msgDiv.appendChild(msgEl);
 
 						// Refresh the attachment if successful.
 						if (data.success) {
@@ -168,7 +168,11 @@ class ActionHooks {
 					.catch(error => {
 						btn.disabled = false;
 						btn.textContent = '<?php echo esc_js( __( 'Remove EXIF Data', 'media-library-tools' ) ); ?>';
-						msgDiv.innerHTML = '<div style="padding:8px;background:#f8d7da;border:1px solid #f5c6cb;border-radius:3px;color:#721c24;">Error: ' + error.message + '</div>';
+						const errEl = document.createElement('div');
+						errEl.style.cssText = 'padding:8px;background:#f8d7da;border:1px solid #f5c6cb;border-radius:3px;color:#721c24;';
+						errEl.textContent = 'Error: ' + (error.message || 'Unknown error');
+						msgDiv.innerHTML = '';
+						msgDiv.appendChild(errEl);
 					});
 				});
 			}
@@ -254,19 +258,6 @@ class ActionHooks {
 							</label>
 							<input type="text" id="tsmlt-model-<?php echo absint( $attachment_id ); ?>" maxlength="64" style="width:100%;padding:6px;border:1px solid #dcdcde;border-radius:3px;font-size:12px;" />
 						</div>
-					</div>
-				</div>
-
-				<!-- Date Section -->
-				<div style="margin-bottom:12px;padding:10px;background:#fff;border:1px solid #dcdcde;border-radius:3px;">
-					<h4 style="margin:0 0 8px 0;font-size:12px;color:#646970;text-transform:uppercase;">
-						<?php esc_html_e( 'Date', 'media-library-tools' ); ?>
-					</h4>
-					<div>
-						<label style="display:block;font-size:12px;font-weight:500;margin-bottom:4px;">
-							<?php esc_html_e( 'Date Taken', 'media-library-tools' ); ?>
-						</label>
-						<input type="text" id="tsmlt-date-<?php echo absint( $attachment_id ); ?>" placeholder="YYYY:MM:DD HH:MM:SS" style="width:100%;padding:6px;border:1px solid #dcdcde;border-radius:3px;font-size:12px;" />
 					</div>
 				</div>
 
@@ -415,7 +406,6 @@ class ActionHooks {
 			function populateForm(data) {
 				document.getElementById('tsmlt-make-' + id).value = data.make || '';
 				document.getElementById('tsmlt-model-' + id).value = data.model || '';
-				document.getElementById('tsmlt-date-' + id).value = data.date_time_original || '';
 				document.getElementById('tsmlt-iso-' + id).value = data.iso || '';
 				document.getElementById('tsmlt-aperture-' + id).value = data.aperture || '';
 				document.getElementById('tsmlt-shutter-' + id).value = data.shutter_speed || '';
@@ -423,7 +413,7 @@ class ActionHooks {
 				document.getElementById('tsmlt-lng-' + id).value = data.gps_lng || '';
 
 				// Add live-update listeners
-				['make', 'model', 'date', 'iso', 'aperture', 'shutter', 'lat', 'lng'].forEach(field => {
+				['make', 'model', 'iso', 'aperture', 'shutter', 'lat', 'lng'].forEach(field => {
 					const el = document.getElementById('tsmlt-' + field + '-' + id);
 					if (el) {
 						el.addEventListener('input', updateAfterPanel);
@@ -436,7 +426,6 @@ class ActionHooks {
 				const fields = [
 					['Make', data.make],
 					['Model', data.model],
-					['Date Taken', data.date_time_original],
 					['ISO', data.iso],
 					['Aperture', data.aperture ? 'f/' + data.aperture : ''],
 					['Shutter Speed', data.shutter_speed],
@@ -457,7 +446,6 @@ class ActionHooks {
 				const fields = [
 					['Make', document.getElementById('tsmlt-make-' + id).value],
 					['Model', document.getElementById('tsmlt-model-' + id).value],
-					['Date Taken', document.getElementById('tsmlt-date-' + id).value],
 					['ISO', document.getElementById('tsmlt-iso-' + id).value],
 					['Aperture', (v => v ? 'f/' + v : '')( document.getElementById('tsmlt-aperture-' + id).value)],
 					['Shutter Speed', document.getElementById('tsmlt-shutter-' + id).value],
@@ -516,7 +504,6 @@ class ActionHooks {
 				const fields = {
 					make: document.getElementById('tsmlt-make-' + id).value,
 					model: document.getElementById('tsmlt-model-' + id).value,
-					date_time_original: document.getElementById('tsmlt-date-' + id).value,
 					iso: document.getElementById('tsmlt-iso-' + id).value,
 					aperture: document.getElementById('tsmlt-aperture-' + id).value,
 					shutter_speed: document.getElementById('tsmlt-shutter-' + id).value,
@@ -739,10 +726,7 @@ class ActionHooks {
 			case 'tsmlt_exif_camera':
 				echo esc_html( ExifDataReader::instance()->get_camera_display( $post_id ) );
 				break;
-			case 'tsmlt_exif_date_taken':
-				echo esc_html( ExifDataReader::instance()->get_date_taken_display( $post_id ) );
-				break;
-			case 'tsmlt_exif_dimensions':
+				case 'tsmlt_exif_dimensions':
 				echo esc_html( ExifDataReader::instance()->get_dimensions_display( $post_id ) );
 				break;
 			default:

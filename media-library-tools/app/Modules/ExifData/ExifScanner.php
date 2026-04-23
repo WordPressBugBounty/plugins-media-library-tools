@@ -31,11 +31,6 @@ class ExifScanner {
 	const SCAN_STATUS_KEY = 'tsmlt_exif_scan_status';
 
 	/**
-	 * WordPress option key for EXIF scan results.
-	 */
-	const SCAN_RESULTS_KEY = 'tsmlt_exif_scan_results';
-
-	/**
 	 * Construct
 	 */
 	private function __construct() {}
@@ -114,7 +109,6 @@ class ExifScanner {
 
 			// Try to read EXIF data.
 			$exif = @exif_read_data( $file_path, null, true ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-
 			if ( is_array( $exif ) && ! empty( $exif ) ) {
 				$with_exif_count++;
 			} else {
@@ -177,7 +171,6 @@ class ExifScanner {
 	 */
 	public function clear_scan(): array {
 		delete_option( self::SCAN_STATUS_KEY );
-		delete_option( self::SCAN_RESULTS_KEY );
 
 		// Reset the static cache in ExifDataReader.
 		ExifDataReader::clear_cache();
