@@ -82,6 +82,9 @@ class Ajax {
 
 		// Used-Where image usage tracking.
 		add_action( 'wp_ajax_tsmlt_used_where_scan_batch', [ $this, 'used_where_scan_batch' ] );
+		add_action( 'wp_ajax_tsmlt_used_where_scan_start', [ $this, 'used_where_scan_start' ] );
+		add_action( 'wp_ajax_tsmlt_used_where_scan_cancel', [ $this, 'used_where_scan_cancel' ] );
+		add_action( 'wp_ajax_tsmlt_used_where_scan_acknowledge', [ $this, 'used_where_scan_acknowledge' ] );
 		add_action( 'wp_ajax_tsmlt_used_where_get_results', [ $this, 'used_where_get_results' ] );
 		add_action( 'wp_ajax_tsmlt_used_where_get_status', [ $this, 'used_where_get_status' ] );
 		add_action( 'wp_ajax_tsmlt_used_where_clear', [ $this, 'used_where_clear' ] );
@@ -107,6 +110,10 @@ class Ajax {
 		add_action( 'wp_ajax_tsmlt_strip_exif_single', [ $this, 'strip_exif_single' ] );
 		add_action( 'wp_ajax_tsmlt_exif_strip_single', [ $this, 'strip_exif_single' ] );
 		add_action( 'wp_ajax_tsmlt_check_strippable_exif', [ $this, 'check_strippable_exif' ] );
+
+		// Nonce refresh — long-running scans can outlive the 12-hour nonce window.
+		// Capability-gated, no nonce required (chicken-and-egg).
+		add_action( 'wp_ajax_tsmlt_refresh_nonce', [ $this, 'refresh_nonce' ] );
 	}
 
 	// -------------------------------------------------------------------------
@@ -163,6 +170,38 @@ class Ajax {
 	 */
 	private function send( $result ): void {
 		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Mint a fresh nonce for the calling admin user.
+	 *
+	 * Long-running batch scans (Used-Where, Duplicate, EXIF, Regenerate) can
+	 * outlive the 12-hour nonce window. The frontend calls this endpoint when a
+	 * batch fails with a stale-nonce error, then retries the original action.
+	 *
+	 * Cannot rely on `verify_and_get_params()` because that requires a valid
+	 * nonce — instead we gate on auth + capability, which is the same posture
+	 * every other endpoint enforces. Returning a nonce to a lower-role user
+	 * would be useless (nonces are bound to user ID + action and the action
+	 * endpoints all require manage_options anyway), but we still refuse so we
+	 * never expose the value below the role boundary.
+	 *
+	 * @return void
+	 */
+	public function refresh_nonce(): void {
+		if ( ! wp_doing_ajax() ) {
+			wp_die( esc_html__( 'Invalid request.', 'media-library-tools' ), 400 );
+		}
+
+		if ( ! isset( $_SERVER['REQUEST_METHOD'] ) || 'POST' !== $_SERVER['REQUEST_METHOD'] ) {
+			wp_die( esc_html__( 'Method not allowed.', 'media-library-tools' ), 405 );
+		}
+
+		if ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( [ 'message' => esc_html__( 'Unauthorized.', 'media-library-tools' ) ], 403 );
+		}
+
+		wp_send_json_success( [ 'nonce' => wp_create_nonce( Fns::NONCE_ID ) ] );
 	}
 
 	// -------------------------------------------------------------------------
@@ -405,7 +444,14 @@ class Ajax {
 	// Used-Where image usage tracking
 	// -------------------------------------------------------------------------
 
-	/** @return void */
+	/**
+	 * Legacy AJAX-driven batch handler.
+	 *
+	 * Kept for backwards compatibility while the cron-driven flow is the
+	 * primary path. New callers should use used_where_scan_start instead.
+	 *
+	 * @return void
+	 */
 	public function used_where_scan_batch(): void {
 		$params = $this->verify_and_get_params();
 		$offset = absint( $params['offset'] ?? 0 );
@@ -414,6 +460,55 @@ class Ajax {
 		// Update scan status in options.
 		update_option( 'tsmlt_used_where_scan_status', array_merge( $result, [ 'timestamp' => current_time( 'mysql' ) ] ) );
 		$this->send( $result );
+	}
+
+	/**
+	 * Start a cron-driven full scan.
+	 *
+	 * Wipes prior usage data, resets the status row to `queued`, and schedules
+	 * the first cron tick. The browser polls used_where_get_status to follow
+	 * progress; the scan continues even if the user closes the tab.
+	 *
+	 * @return void
+	 */
+	public function used_where_scan_start(): void {
+		$this->verify_and_get_params();
+
+		$status = UsedWhereScanner::instance()->start_scheduled_scan();
+
+		// Spawn WP-Cron immediately so the first tick fires now instead of
+		// waiting for the next incoming request. Non-blocking — we don't
+		// care about the response, only that wp-cron.php is poked.
+		spawn_cron();
+
+		$this->send( $status );
+	}
+
+	/**
+	 * Cancel an in-progress cron-driven scan.
+	 *
+	 * Unschedules every queued tick and marks the status as cancelled. Existing
+	 * usage data is preserved (use used_where_clear to wipe).
+	 *
+	 * @return void
+	 */
+	public function used_where_scan_cancel(): void {
+		$this->verify_and_get_params();
+		$this->send( UsedWhereScanner::instance()->cancel_scheduled_scan() );
+	}
+
+	/**
+	 * Acknowledge the latest terminal scan state.
+	 *
+	 * Called by the polling UI right after it shows a "scan finished" /
+	 * "scan cancelled" / "scan failed" toast on first visit, so the same
+	 * toast doesn't fire again on subsequent page loads.
+	 *
+	 * @return void
+	 */
+	public function used_where_scan_acknowledge(): void {
+		$this->verify_and_get_params();
+		$this->send( UsedWhereScanner::instance()->acknowledge_scan_status() );
 	}
 
 	/** @return void */
@@ -425,15 +520,7 @@ class Ajax {
 		$filter = sanitize_text_field( $params['filter'] ?? 'used' );
 		$search = sanitize_text_field( $params['search'] ?? '' );
 
-		// Only return results if a scan has been completed.
 		$scan_status = get_option( 'tsmlt_used_where_scan_status', [] );
-		if ( empty( $scan_status['processed'] ) ) {
-			$this->send( [
-				'usages' => [],
-				'total'  => 0,
-			] );
-			return;
-		}
 
 		$args = [
 			'post_type'      => 'attachment',
@@ -447,6 +534,15 @@ class Ajax {
 		}
 
 		if ( 'unused' === $filter ) {
+			// Unused tab requires a full scan to know which attachments have no usages.
+			if ( empty( $scan_status['processed'] ) ) {
+				$this->send( [
+					'usages' => [],
+					'total'  => 0,
+				] );
+				return;
+			}
+
 			// Attachments uploaded before the scan that have no recorded usages.
 			$args['meta_query'] = [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 				[
@@ -466,7 +562,8 @@ class Ajax {
 				];
 			}
 		} else {
-			// Default: attachments that have usage meta (used images).
+			// Used tab: show any attachment with usage meta — works even without full scan
+			// (e.g. usage detected on post save or frontend visit).
 			$args['meta_query'] = [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 				[
 					'key'     => UsedWhereScanner::META_KEY,
@@ -477,23 +574,83 @@ class Ajax {
 
 		$query = new \WP_Query( $args );
 
-		$usages = [];
+		$usages  = [];
+		$skipped = 0;
+
 		foreach ( $query->posts as $post ) {
-			$stats    = UsedWhereScanner::instance()->get_usage_stats( $post->ID );
+			$stats = UsedWhereScanner::instance()->get_usage_stats( $post->ID );
+
+			// Cross-check: skip false positives.
+			// Used tab: skip if meta exists but has 0 actual usages (empty array residue).
+			if ( 'used' === $filter && $stats['total_usage'] < 1 ) {
+				// Clean up the empty meta.
+				delete_post_meta( $post->ID, UsedWhereScanner::META_KEY );
+				$skipped++;
+				continue;
+			}
+			// Unused tab: skip if attachment actually has recorded usages.
+			if ( 'unused' === $filter && $stats['total_usage'] > 0 ) {
+				$skipped++;
+				continue;
+			}
+
+			// Compute display counts that match the user's mental model.
+			//
+			// `used_in_posts` — distinct posts that reference this image.
+			//
+			// `usage_count` — distinct semantic placements. `permalink` and
+			// `rendered` are HTML-scan confirmations of placements already
+			// detected by structured paths (featured / content / gallery /
+			// builder / meta), so they don't add to the count when an owning
+			// type is present for the same post. Without this, an image used
+			// once on one product reads as "3 usages" because elementor +
+			// permalink + rendered all caught it — confusing.
+			$incidental_types  = [ 'permalink' => true, 'rendered' => true ];
+			$distinct_post_ids = [];
+			$has_owning_per_post = []; // post_id => true once an owning type recorded
+			$count_keys          = []; // (post_id . ':' . type) for owning, post_id . ':*' for incidental-only
+
+			foreach ( $stats['by_post'] as $usage ) {
+				$pid  = (int) ( $usage['post_id'] ?? 0 );
+				$type = (string) ( $usage['usage_type'] ?? '' );
+				if ( ! $pid ) {
+					continue;
+				}
+				$distinct_post_ids[ $pid ] = true;
+
+				if ( ! isset( $incidental_types[ $type ] ) ) {
+					// Owning placement on this post — counts once per (post, type).
+					$count_keys[ $pid . ':' . $type ] = true;
+					$has_owning_per_post[ $pid ]      = true;
+				}
+			}
+			// Second pass: fold in incidental records only for posts that
+			// have NO owning record (otherwise they're confirmation noise).
+			foreach ( $stats['by_post'] as $usage ) {
+				$pid  = (int) ( $usage['post_id'] ?? 0 );
+				$type = (string) ( $usage['usage_type'] ?? '' );
+				if ( ! $pid || ! isset( $incidental_types[ $type ] ) ) {
+					continue;
+				}
+				if ( ! isset( $has_owning_per_post[ $pid ] ) ) {
+					$count_keys[ $pid . ':*' ] = true;
+				}
+			}
+
 			$usages[] = [
 				'attachment_id' => $post->ID,
 				'title'         => $post->post_title,
 				'url'           => wp_get_attachment_url( $post->ID ),
-				'usage_count'   => $stats['total_usage'],
+				'usage_count'   => count( $count_keys ),
 				'usage_by_type' => $stats['by_type'],
-				'used_in_posts' => count( $stats['by_post'] ),
+				'used_in_posts' => count( $distinct_post_ids ),
 				'posts'         => $stats['by_post'],
 			];
 		}
 
 		$this->send( [
 			'usages' => $usages,
-			'total'  => $query->found_posts,
+			'total'  => $query->found_posts - $skipped,
 		] );
 	}
 

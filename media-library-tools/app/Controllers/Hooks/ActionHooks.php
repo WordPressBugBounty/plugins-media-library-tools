@@ -14,6 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 use TinySolutions\mlt\Helpers\Fns;
 use TinySolutions\mlt\Modules\ExifData\ExifDataReader;
 use TinySolutions\mlt\Modules\ExifData\ExifAutoProcessor;
+use TinySolutions\mlt\Modules\UsedWhere\UsedWhereScanner;
 use TinySolutions\mlt\Traits\SingletonTrait;
 
 
@@ -39,6 +40,144 @@ class ActionHooks {
 		// Hook the function to a cron job.
 		add_action( 'in_admin_header', [ $this, 'remove_all_notices' ], 99 );
 		add_filter( 'attachment_fields_to_edit', [ $this, 'add_attachment_field' ], 10, 2 );
+		// Schedule image usage scan in background when a post is saved.
+		add_action( 'save_post', [ $this, 'schedule_usage_scan_on_save' ], 99, 2 );
+		// Background cron handler for post-save scan.
+		add_action( 'tsmlt_scan_post_usage', [ $this, 'run_scheduled_post_scan' ] );
+		// Cron-driven full-scan tick — self-reschedules until complete.
+		add_action( UsedWhereScanner::SCAN_TICK_HOOK, [ UsedWhereScanner::instance(), 'run_tick_batch' ], 10, 1 );
+		// Auto-detect image usage on first frontend visit by scanning rendered HTML.
+		add_action( 'template_redirect', [ $this, 'track_image_usage_on_visit' ] );
+		// Process captured HTML after response is sent — no delay for visitor.
+		add_action( 'shutdown', [ $this, 'process_captured_html' ] );
+	}
+
+	/**
+	 * Schedule a background cron job to scan image usage when a post is saved.
+	 *
+	 * Does NOT run the scan synchronously — zero delay for the editor.
+	 * WordPress cron picks it up on the next page load (typically within seconds).
+	 *
+	 * @param int      $post_id Post ID.
+	 * @param \WP_Post $post    Post object.
+	 *
+	 * @return void
+	 */
+	public function schedule_usage_scan_on_save( $post_id, $post ): void {
+		// Skip auto-saves, revisions, and attachments.
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+		if ( wp_is_post_revision( $post_id ) ) {
+			return;
+		}
+		if ( 'attachment' === $post->post_type ) {
+			return;
+		}
+
+		// Reset the frontend visit flag so the next visit re-scans rendered HTML.
+		delete_post_meta( $post_id, '_tsmlt_usage_tracked' );
+
+		// Clear any previously scheduled scan for this post (avoid duplicates).
+		wp_clear_scheduled_hook( 'tsmlt_scan_post_usage', [ $post_id ] );
+
+		// Schedule scan to run in background after a short delay.
+		// +10 seconds avoids firing during the immediate post-save redirect.
+		wp_schedule_single_event( time() + 10, 'tsmlt_scan_post_usage', [ $post_id ] );
+	}
+
+	/**
+	 * Background cron handler: scan a single post for image usage.
+	 *
+	 * @param int $post_id Post ID.
+	 *
+	 * @return void
+	 */
+	public function run_scheduled_post_scan( $post_id ): void {
+		$post_id = absint( $post_id );
+		if ( ! $post_id ) {
+			return;
+		}
+
+		UsedWhereScanner::instance()->scan_single_post( $post_id );
+	}
+
+	/**
+	 * Track image usage on the first frontend visit by scanning rendered HTML.
+	 *
+	 * Uses output buffering to capture the full page output (<html> to </html>),
+	 * then scans it for all image URLs (img src, srcset, CSS background-image, etc.).
+	 * This detects images in header, footer, sidebar, widgets, and hardcoded URLs.
+	 *
+	 * The actual scanning runs on the `shutdown` hook (after response is sent)
+	 * so it does NOT delay page delivery for the visitor.
+	 *
+	 * Uses a post meta flag to ensure the scan runs only once per post.
+	 *
+	 * @return void
+	 */
+	public function track_image_usage_on_visit(): void {
+		if ( is_admin() || ! is_singular() ) {
+			return;
+		}
+
+		$post = get_queried_object();
+		if ( ! $post || ! ( $post instanceof \WP_Post ) || 'attachment' === $post->post_type ) {
+			return;
+		}
+
+		// Only run once per post — check a lightweight meta flag.
+		$flag = get_post_meta( $post->ID, '_tsmlt_usage_tracked', true );
+		if ( $flag ) {
+			return;
+		}
+
+		// Set the flag first to avoid repeated scans on concurrent requests.
+		update_post_meta( $post->ID, '_tsmlt_usage_tracked', '1' );
+
+		// Start output buffering to capture the full rendered HTML.
+		$post_id = $post->ID;
+		ob_start(
+			function ( $html ) use ( $post_id ) {
+				if ( ! empty( $html ) ) {
+					// Store HTML for processing on shutdown (after response is sent).
+					$this->captured_html     = $html;
+					$this->captured_post_id  = $post_id;
+				}
+				return $html; // Return HTML unchanged — no delay to page output.
+			}
+		);
+	}
+
+	/**
+	 * Captured HTML from output buffer — processed on shutdown.
+	 *
+	 * @var string|null
+	 */
+	private $captured_html = null;
+
+	/**
+	 * Post ID for captured HTML.
+	 *
+	 * @var int|null
+	 */
+	private $captured_post_id = null;
+
+	/**
+	 * Process captured HTML on shutdown (after response is sent to browser).
+	 *
+	 * @return void
+	 */
+	public function process_captured_html(): void {
+		if ( empty( $this->captured_html ) || empty( $this->captured_post_id ) ) {
+			return;
+		}
+
+		UsedWhereScanner::instance()->scan_rendered_html( $this->captured_html, $this->captured_post_id );
+
+		// Free memory.
+		$this->captured_html    = null;
+		$this->captured_post_id = null;
 	}
 
 	/**

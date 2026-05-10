@@ -2,14 +2,14 @@
 # This file is distributed under the GPLv3.
 msgid ""
 msgstr ""
-"Project-Id-Version: Media Library Tools - AI-Powered Rename, Clean & CSV Import/Export 2.2.4\n"
+"Project-Id-Version: Media Library Tools - AI-Powered Rename, Clean & CSV Import/Export 2.2.5\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/media-library-tools\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-04-25T18:52:24+00:00\n"
+"POT-Creation-Date: 2026-05-10T16:26:29+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: media-library-tools\n"
@@ -43,20 +43,12 @@ msgstr ""
 msgid "Dismiss"
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:98
-msgid "Update failed. Maybe change not found. "
+#: app/Controllers/Admin/Api.php:142
+msgid "Settings saved."
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:145
-msgid "Please try to fix"
-msgstr ""
-
-#: app/Controllers/Admin/Api.php:145
-msgid "Updated. Be happy"
-msgstr ""
-
-#: app/Controllers/Admin/Api.php:452
-#: app/Controllers/Admin/Api.php:546
+#: app/Controllers/Admin/Api.php:448
+#: app/Controllers/Admin/Api.php:542
 #: app/Modules/Rename/RenameModule.php:43
 #: app/Modules/Rename/RenameModule.php:152
 #: app/Modules/Rubbish/RubbishScanner.php:125
@@ -64,25 +56,25 @@ msgstr ""
 msgid "Update failed. Please try to fix"
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:468
-#: app/Controllers/Admin/Api.php:545
+#: app/Controllers/Admin/Api.php:464
+#: app/Controllers/Admin/Api.php:541
 msgid "Updated. Be happy."
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:483
+#: app/Controllers/Admin/Api.php:479
 msgid "Done. Be happy."
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:497
+#: app/Controllers/Admin/Api.php:493
 msgid "Deleted. Be happy."
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:498
+#: app/Controllers/Admin/Api.php:494
 msgid "Deleted failed. Please try to fix"
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:558
-#: app/Controllers/Admin/Api.php:568
+#: app/Controllers/Admin/Api.php:554
+#: app/Controllers/Admin/Api.php:564
 msgid "This feature requires the Pro plugin."
 msgstr ""
 
@@ -179,162 +171,165 @@ msgstr ""
 msgid "PHP"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:50
+#: app/Controllers/Hooks/ActionHooks.php:189
 msgid "Uploaded To"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:58
+#: app/Controllers/Hooks/ActionHooks.php:197
 msgid "EXIF Data"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:65
+#: app/Controllers/Hooks/ActionHooks.php:204
 msgid "Remove EXIF"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:72
+#: app/Controllers/Hooks/ActionHooks.php:211
 msgid "Edit EXIF"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:94
+#: app/Controllers/Hooks/ActionHooks.php:233
 msgid "EXIF removal is only available for JPEG images."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:107
-#: app/Controllers/Hooks/ActionHooks.php:149
-#: app/Controllers/Hooks/ActionHooks.php:170
+#: app/Controllers/Hooks/ActionHooks.php:246
+#: app/Controllers/Hooks/ActionHooks.php:288
+#: app/Controllers/Hooks/ActionHooks.php:309
 msgid "Remove EXIF Data"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:110
+#: app/Controllers/Hooks/ActionHooks.php:249
 msgid "This will remove all metadata (camera info, GPS, dates, etc.) from the image while preserving visual quality."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:127
+#: app/Controllers/Hooks/ActionHooks.php:266
 msgid "Are you sure you want to remove EXIF metadata? This action cannot be undone."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:132
+#: app/Controllers/Hooks/ActionHooks.php:271
 msgid "Removing..."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:199
+#: app/Controllers/Hooks/ActionHooks.php:338
 msgid "EXIF editing is only available for JPEG images."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:207
+#: app/Controllers/Hooks/ActionHooks.php:346
 msgid "Pro Feature"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:208
+#: app/Controllers/Hooks/ActionHooks.php:347
 msgid "EXIF editing is available in the Pro version."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:217
+#: app/Controllers/Hooks/ActionHooks.php:356
 msgid "Edit EXIF Data"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:226
+#: app/Controllers/Hooks/ActionHooks.php:365
 msgid "Before"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:229
+#: app/Controllers/Hooks/ActionHooks.php:368
 msgid "After"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:246
+#: app/Controllers/Hooks/ActionHooks.php:385
 #: app/Controllers/Hooks/FilterHooks.php:392
 #: app/Modules/ExifData/ExifDataReader.php:500
 msgid "Camera"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:251
+#: app/Controllers/Hooks/ActionHooks.php:390
 #: app/Modules/ExifData/ExifDataReader.php:138
 #: app/Modules/ExifData/ExifDataReader.php:448
 msgid "Make"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:257
+#: app/Controllers/Hooks/ActionHooks.php:396
 #: app/Modules/ExifData/ExifDataReader.php:139
 #: app/Modules/ExifData/ExifDataReader.php:449
 msgid "Model"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:267
+#: app/Controllers/Hooks/ActionHooks.php:406
 #: app/Modules/ExifData/ExifDataReader.php:502
 msgid "Exposure"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:272
+#: app/Controllers/Hooks/ActionHooks.php:411
 #: app/Modules/ExifData/ExifDataReader.php:153
 #: app/Modules/ExifData/ExifDataReader.php:451
 msgid "ISO"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:278
+#: app/Controllers/Hooks/ActionHooks.php:417
 msgid "Aperture (f/)"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:285
+#: app/Controllers/Hooks/ActionHooks.php:424
 msgid "Shutter Speed"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:294
+#: app/Controllers/Hooks/ActionHooks.php:433
 msgid "Location"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:299
+#: app/Controllers/Hooks/ActionHooks.php:438
 msgid "Latitude (-90 to 90)"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:305
+#: app/Controllers/Hooks/ActionHooks.php:444
 msgid "Longitude (-180 to 180)"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:318
+#: app/Controllers/Hooks/ActionHooks.php:457
 msgid "Cancel"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:321
-#: app/Controllers/Hooks/ActionHooks.php:526
-#: app/Controllers/Hooks/ActionHooks.php:547
+#: app/Controllers/Hooks/ActionHooks.php:460
+#: app/Controllers/Hooks/ActionHooks.php:665
+#: app/Controllers/Hooks/ActionHooks.php:686
 msgid "Save EXIF"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:502
+#: app/Controllers/Hooks/ActionHooks.php:641
 msgid "Saving..."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:624
+#: app/Controllers/Hooks/ActionHooks.php:763
 msgid "View"
 msgstr ""
 
-#: app/Controllers/Hooks/Ajax.php:129
-#: app/Controllers/Hooks/Ajax.php:179
+#: app/Controllers/Hooks/Ajax.php:136
+#: app/Controllers/Hooks/Ajax.php:193
+#: app/Controllers/Hooks/Ajax.php:218
 msgid "Invalid request."
 msgstr ""
 
-#: app/Controllers/Hooks/Ajax.php:134
+#: app/Controllers/Hooks/Ajax.php:141
+#: app/Controllers/Hooks/Ajax.php:197
 msgid "Method not allowed."
 msgstr ""
 
-#: app/Controllers/Hooks/Ajax.php:142
-#: app/Controllers/Hooks/Ajax.php:185
+#: app/Controllers/Hooks/Ajax.php:149
+#: app/Controllers/Hooks/Ajax.php:201
+#: app/Controllers/Hooks/Ajax.php:224
 msgid "Unauthorized."
 msgstr ""
 
-#: app/Controllers/Hooks/Ajax.php:151
+#: app/Controllers/Hooks/Ajax.php:158
 msgid "Malformed request payload."
 msgstr ""
 
-#: app/Controllers/Hooks/Ajax.php:518
-#: app/Controllers/Hooks/Ajax.php:537
-#: app/Controllers/Hooks/Ajax.php:556
+#: app/Controllers/Hooks/Ajax.php:675
+#: app/Controllers/Hooks/Ajax.php:694
+#: app/Controllers/Hooks/Ajax.php:713
 msgid "No IDs provided."
 msgstr ""
 
-#: app/Controllers/Hooks/Ajax.php:655
-#: app/Controllers/Hooks/Ajax.php:716
-#: app/Controllers/Hooks/Ajax.php:729
+#: app/Controllers/Hooks/Ajax.php:812
+#: app/Controllers/Hooks/Ajax.php:873
+#: app/Controllers/Hooks/Ajax.php:886
 msgid "Missing attachment_id."
 msgstr ""
 
@@ -648,7 +643,13 @@ msgstr ""
 msgid "File not found on disk."
 msgstr ""
 
-#: app/Modules/Regenerate/RegenerateThumbnails.php:134
+#. translators: 1: MIME type, 2: error message
+#: app/Modules/Regenerate/RegenerateThumbnails.php:122
+#, php-format
+msgid "Image editor cannot handle %1$s: %2$s"
+msgstr ""
+
+#: app/Modules/Regenerate/RegenerateThumbnails.php:152
 msgid "Could not generate metadata (unsupported format?)."
 msgstr ""
 
@@ -734,11 +735,17 @@ msgstr ""
 msgid "Could not delete directory. Check file permissions."
 msgstr ""
 
-#: app/Modules/UsedWhere/UsedWhereScanner.php:524
+#. translators: %d: order number
+#: app/Modules/UsedWhere/UsedWhereScanner.php:343
+#, php-format
+msgid "Order #%d"
+msgstr ""
+
+#: app/Modules/UsedWhere/UsedWhereScanner.php:1870
 msgid "Scan cleared successfully."
 msgstr ""
 
-#: app/Modules/UsedWhere/UsedWhereScanner.php:668
+#: app/Modules/UsedWhere/UsedWhereScanner.php:2342
 msgid "Site Settings"
 msgstr ""
 
