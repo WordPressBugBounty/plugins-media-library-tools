@@ -60,6 +60,7 @@ class Ajax {
 		add_action( 'wp_ajax_tsmlt_get_rubbish_filetype', [ $this, 'get_rubbish_filetype' ] );
 		add_action( 'wp_ajax_tsmlt_get_rubbish_file', [ $this, 'get_rubbish_file' ] );
 		add_action( 'wp_ajax_tsmlt_get_dir_list', [ $this, 'get_dir_list' ] );
+		add_action( 'wp_ajax_tsmlt_start_rubbish_scan', [ $this, 'start_rubbish_scan' ] );
 		add_action( 'wp_ajax_tsmlt_rescan_dir', [ $this, 'rescan_dir' ] );
 		add_action( 'wp_ajax_tsmlt_search_file_by_dir', [ $this, 'search_file_by_dir' ] );
 		add_action( 'wp_ajax_tsmlt_truncate_unlisted_file', [ $this, 'truncate_unlisted_file' ] );
@@ -79,6 +80,9 @@ class Ajax {
 		add_action( 'wp_ajax_tsmlt_duplicate_get_results', [ $this, 'duplicate_get_results' ] );
 		add_action( 'wp_ajax_tsmlt_duplicate_get_status', [ $this, 'duplicate_get_status' ] );
 		add_action( 'wp_ajax_tsmlt_duplicate_clear', [ $this, 'duplicate_clear' ] );
+		add_action( 'wp_ajax_tsmlt_duplicate_scan_start', [ $this, 'duplicate_scan_start' ] );
+		add_action( 'wp_ajax_tsmlt_duplicate_scan_cancel', [ $this, 'duplicate_scan_cancel' ] );
+		add_action( 'wp_ajax_tsmlt_duplicate_scan_get_progress', [ $this, 'duplicate_scan_get_progress' ] );
 
 		// Used-Where image usage tracking.
 		add_action( 'wp_ajax_tsmlt_used_where_scan_batch', [ $this, 'used_where_scan_batch' ] );
@@ -96,6 +100,9 @@ class Ajax {
 		// Regenerate thumbnails.
 		add_action( 'wp_ajax_tsmlt_regenerate_batch', [ $this, 'regenerate_batch' ] );
 		add_action( 'wp_ajax_tsmlt_regenerate_get_status', [ $this, 'regenerate_get_status' ] );
+		add_action( 'wp_ajax_tsmlt_regenerate_start', [ $this, 'regenerate_start' ] );
+		add_action( 'wp_ajax_tsmlt_regenerate_get_progress', [ $this, 'regenerate_get_progress' ] );
+		add_action( 'wp_ajax_tsmlt_regenerate_cancel', [ $this, 'regenerate_cancel' ] );
 
 		// EXIF data reading.
 		add_action( 'wp_ajax_tsmlt_get_exif_data', [ $this, 'get_exif_data' ] );
@@ -104,6 +111,9 @@ class Ajax {
 		add_action( 'wp_ajax_tsmlt_exif_scan_batch', [ $this, 'exif_scan_batch' ] );
 		add_action( 'wp_ajax_tsmlt_exif_get_status', [ $this, 'exif_get_status' ] );
 		add_action( 'wp_ajax_tsmlt_exif_clear_scan', [ $this, 'exif_clear_scan' ] );
+		add_action( 'wp_ajax_tsmlt_exif_scan_start', [ $this, 'exif_scan_start' ] );
+		add_action( 'wp_ajax_tsmlt_exif_scan_cancel', [ $this, 'exif_scan_cancel' ] );
+		add_action( 'wp_ajax_tsmlt_exif_scan_get_progress', [ $this, 'exif_scan_get_progress' ] );
 		add_action( 'wp_ajax_tsmlt_exif_get_results', [ $this, 'exif_get_results' ] );
 
 		// EXIF stripping (single image — free feature).
@@ -335,6 +345,12 @@ class Ajax {
 	}
 
 	/** @return void */
+	public function start_rubbish_scan(): void {
+		$this->verify_and_get_params();
+		$this->send( RubbishScanner::instance()->start_scan() );
+	}
+
+	/** @return void */
 	public function rescan_dir(): void {
 		$params = $this->verify_and_get_params();
 		$this->send( RubbishScanner::instance()->rescan_dir( $params ) );
@@ -438,6 +454,24 @@ class Ajax {
 	public function duplicate_clear(): void {
 		$this->verify_and_get_params();
 		$this->send( DuplicateScanner::instance()->clear_scan() );
+	}
+
+	/** @return void */
+	public function duplicate_scan_start(): void {
+		$this->verify_and_get_params();
+		$this->send( DuplicateScanner::instance()->start() );
+	}
+
+	/** @return void */
+	public function duplicate_scan_cancel(): void {
+		$this->verify_and_get_params();
+		$this->send( DuplicateScanner::instance()->cancel() );
+	}
+
+	/** @return void */
+	public function duplicate_scan_get_progress(): void {
+		$this->verify_and_get_params();
+		$this->send( DuplicateScanner::instance()->get_progress() );
 	}
 
 	// -------------------------------------------------------------------------
@@ -641,6 +675,7 @@ class Ajax {
 				'attachment_id' => $post->ID,
 				'title'         => $post->post_title,
 				'url'           => wp_get_attachment_url( $post->ID ),
+				'mime_type'     => $post->post_mime_type,
 				'usage_count'   => count( $count_keys ),
 				'usage_by_type' => $stats['by_type'],
 				'used_in_posts' => count( $distinct_post_ids ),
@@ -799,6 +834,24 @@ class Ajax {
 		] );
 	}
 
+	/** @return void */
+	public function regenerate_start(): void {
+		$this->verify_and_get_params();
+		$this->send( RegenerateThumbnails::instance()->start() );
+	}
+
+	/** @return void */
+	public function regenerate_get_progress(): void {
+		$this->verify_and_get_params();
+		$this->send( RegenerateThumbnails::instance()->get_progress() );
+	}
+
+	/** @return void */
+	public function regenerate_cancel(): void {
+		$this->verify_and_get_params();
+		$this->send( RegenerateThumbnails::instance()->cancel() );
+	}
+
 	// -------------------------------------------------------------------------
 	// EXIF Data Reading
 	// -------------------------------------------------------------------------
@@ -837,6 +890,24 @@ class Ajax {
 	public function exif_clear_scan(): void {
 		$this->verify_and_get_params();
 		$this->send( ExifScanner::instance()->clear_scan() );
+	}
+
+	/** @return void */
+	public function exif_scan_start(): void {
+		$this->verify_and_get_params();
+		$this->send( ExifScanner::instance()->start() );
+	}
+
+	/** @return void */
+	public function exif_scan_cancel(): void {
+		$this->verify_and_get_params();
+		$this->send( ExifScanner::instance()->cancel() );
+	}
+
+	/** @return void */
+	public function exif_scan_get_progress(): void {
+		$this->verify_and_get_params();
+		$this->send( ExifScanner::instance()->get_progress() );
 	}
 
 	/** @return void */

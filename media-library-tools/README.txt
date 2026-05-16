@@ -3,7 +3,7 @@ Contributors: tinysolution, mehediihasan
 Tags: rename, duplicate, cleaner, csv export import, alt text
 Requires at least: 5.5
 Tested up to: 7.0
-Stable tag: 2.2.5
+Stable tag: 2.2.6
 Requires PHP: 7.4
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
@@ -233,8 +233,6 @@ Descriptive, keyword-rich filenames help search engines understand your images, 
 
 == Frequently Asked Questions ==
 
--- MEDIA TABLE --
-
 = How do I view and manage all my media files in one place? =
 Go to **Media > Media Tools > Media Table**. You will see your entire WordPress media library in a fast, paginated table with columns for thumbnail, filename, title, alt text, caption, description, attached post, and file type. You can sort by any column, filter by date, category, or keyword, and perform bulk actions on selected items.
 
@@ -451,6 +449,11 @@ Visit the [WordPress.org support forum](https://wordpress.org/support/plugin/med
 ---
 
 == Changelog ==
+
+= 2.2.6 ( May 16, 2026 )=
+* Fixed: Used/Un-Used Image Scanning WooCommerce Category Issue Resolve
+* Improvement: Used/Un-Used Image Scanning More Functional
+* Improvement: EXIF Data Edit Functionality More Functional
 
 = 2.2.5 ( May 09, 2026 ) =
 Improvement: Media Usage Tracker Functionality Improvement

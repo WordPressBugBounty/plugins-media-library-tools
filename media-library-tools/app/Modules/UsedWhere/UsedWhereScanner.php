@@ -60,6 +60,24 @@ class UsedWhereScanner {
 		'brizy',
 		'wpbakery',
 		'meta',
+		'term_meta',
+	];
+
+	/**
+	 * Site-wide usage types — image is owned by the site itself, not by a
+	 * specific post. When ANY of these are recorded for an attachment, every
+	 * `permalink` / `rendered` hit on that attachment is by definition
+	 * contamination from chrome (logo, favicon, widget, menu image, header
+	 * image, background image) repeating on every public page. Reconciliation
+	 * drops all per-post permalink/rendered records in that case.
+	 */
+	const SITEWIDE_USAGE_TYPES = [
+		'site_logo',
+		'site_icon',
+		'header_image',
+		'background_image',
+		'nav_menu',
+		'widget',
 	];
 
 	/**
@@ -107,6 +125,23 @@ class UsedWhereScanner {
 	 * @var array<int, true>|null Map keyed by attachment ID.
 	 */
 	private $fallback_attachment_ids = null;
+
+	/**
+	 * Attachment ID → owning post_id for featured images, built once per batch.
+	 *
+	 * Used by `record_usages_from_urls()` to drop `permalink` / `rendered` hits
+	 * that come from a *different* post's featured image being shown in a
+	 * related-posts / recent-posts / popular-posts sidebar widget on the
+	 * currently-scanned page. The thumbnail is rendered HTML on this post but
+	 * is actually owned by the featured-image post — recording it here would
+	 * incorrectly mark the image as "used" on every post that runs the widget.
+	 *
+	 * Map only — we only need to know whether *some other* post owns the
+	 * attachment via featured image, not the complete list of owners.
+	 *
+	 * @var array<int, int>|null Map keyed by attachment ID → first post_id seen.
+	 */
+	private $featured_image_owners = null;
 
 	/**
 	 * Construct
@@ -469,6 +504,7 @@ class UsedWhereScanner {
 		$this->known_attachment_ids = null;
 		$this->upload_base_url = null;
 		$this->fallback_attachment_ids = null;
+		$this->featured_image_owners = null;
 
 		$next_offset = $offset + $processed_in_batch;
 		return [
@@ -486,6 +522,20 @@ class UsedWhereScanner {
 	 * @return void
 	 */
 	private function detect_usage_in_post( \WP_Post $post ): void {
+		// Elementor "kit" posts (post_type=elementor_library, _elementor_template_type=kit)
+		// store the site's GLOBAL DEFAULT styles — default page background, header
+		// logo, theme color images, body background, etc. They are not pages that
+		// actually use those images; Elementor applies the values dynamically on
+		// other pages. Scanning the kit records every default image as
+		// `usage_type='elementor'` on the kit post itself, producing phantom
+		// "used in: Default Kit" entries for images that are merely global
+		// settings. The WP-level sidewide scanner already captures the real
+		// owners (custom_logo / site_icon / background_image), so we can skip
+		// the kit entirely without losing signal.
+		if ( $this->is_elementor_kit( $post ) ) {
+			return;
+		}
+
 		// 1. Featured image.
 		$featured_id = get_post_thumbnail_id( $post->ID );
 		if ( $featured_id ) {
@@ -719,6 +769,14 @@ class UsedWhereScanner {
 		$is_html_scan = ( 'permalink' === $type || 'rendered' === $type );
 		$fallbacks    = $is_html_scan ? $this->get_fallback_attachment_ids() : [];
 
+		// On HTML-scan paths, also suppress thumbnails of *other* posts being
+		// shown by related-posts / recent-posts widgets, schema markup, etc.
+		// If the matched attachment is the featured image of a different post,
+		// the hit on this post is incidental and should not be recorded.
+		if ( $is_html_scan ) {
+			$this->build_featured_image_owners();
+		}
+
 		foreach ( array_keys( $relative_paths ) as $relative_path ) {
 			$attachment_id = $this->get_attachment_id_by_url( $base_url . $relative_path );
 			if ( ! $attachment_id ) {
@@ -726,6 +784,12 @@ class UsedWhereScanner {
 			}
 			if ( isset( $fallbacks[ $attachment_id ] ) ) {
 				continue;
+			}
+			if ( $is_html_scan ) {
+				$owner = $this->featured_image_owners[ $attachment_id ] ?? 0;
+				if ( $owner && $owner !== $post->ID ) {
+					continue; // related-posts widget thumbnail — belongs to $owner, not $post
+				}
 			}
 			if ( ! isset( $resolved_ids[ $attachment_id ] ) ) {
 				$resolved_ids[ $attachment_id ] = true;
@@ -945,14 +1009,25 @@ class UsedWhereScanner {
 	/**
 	 * Recursively extract attachment IDs from nested arrays.
 	 *
-	 * @param array    $data Array to search.
-	 * @param \WP_Post $post Post object.
-	 * @param string   $type Usage type.
-	 * @param int      $depth Current recursion depth (max 10).
+	 * The numeric-key extraction (`id`/`image`/`attachment_id` => 123) only
+	 * fires when the walk is inside a known builder/block context — either
+	 * because the caller declared one via `$type` (Elementor, Beaver, Divi,
+	 * Brizy, WPBakery), or because an ancestor array in the walk carried a
+	 * builder marker (`widgetType`, `elType`, `blockName`, `settings`, etc).
+	 *
+	 * Without this gate, every CPT meta whose generic `id` field happens
+	 * to match an attachment ID gets recorded as a usage — that's how a
+	 * freshly uploaded file ends up "used" across unrelated posts.
+	 *
+	 * @param array    $data               Array to search.
+	 * @param \WP_Post $post               Post object.
+	 * @param string   $type               Usage type label.
+	 * @param int      $depth              Current recursion depth (max 10).
+	 * @param bool     $in_builder_context Whether the walk is already inside a builder/block structure.
 	 *
 	 * @return void
 	 */
-	private function extract_attachment_ids_from_array( array $data, \WP_Post $post, string $type, int $depth = 0 ): void {
+	private function extract_attachment_ids_from_array( array $data, \WP_Post $post, string $type, int $depth = 0, bool $in_builder_context = false ): void {
 		if ( $depth > 10 ) {
 			return;
 		}
@@ -960,8 +1035,23 @@ class UsedWhereScanner {
 		// Use the lookup map to verify attachment IDs without DB queries.
 		$attachment_ids = $this->get_known_attachment_ids();
 
+		// At the top level, callers that explicitly target a builder (Elementor,
+		// Beaver, Divi, Brizy, WPBakery) opt into the numeric-key extraction
+		// for free — their input shape is guaranteed to be widget data. The
+		// generic `'meta'` and `'elementor'` legacy paths must earn it by
+		// matching a structural marker below.
+		if ( ! $in_builder_context && $this->is_builder_caller_type( $type ) ) {
+			$in_builder_context = true;
+		}
+
+		// Promote to builder context when this array itself carries a builder
+		// marker. We look once per array, not per key, so the cost is fixed.
+		if ( ! $in_builder_context && $this->array_has_builder_marker( $data ) ) {
+			$in_builder_context = true;
+		}
+
 		foreach ( $data as $key => $value ) {
-			if ( is_numeric( $value ) && in_array( $key, [ 'id', 'image', 'attachment_id' ], true ) ) {
+			if ( $in_builder_context && is_numeric( $value ) && in_array( $key, [ 'id', 'image', 'attachment_id' ], true ) ) {
 				$attachment_id = absint( $value );
 				if ( $attachment_id && isset( $attachment_ids[ $attachment_id ] ) ) {
 					$this->record_usage( $attachment_id, $post, $type );
@@ -970,7 +1060,10 @@ class UsedWhereScanner {
 
 			if ( is_string( $value ) && strpos( $value, '/wp-content/uploads/' ) !== false ) {
 				// Try the value as a single URL first (covers ACF image URL, plain URL fields).
-				$attachment_id = $this->get_attachment_id_by_url( $value );
+				// Meta values store full uploads paths verbatim — disable the
+				// basename fallback so a value of `.../another/audio.mp3` cannot
+				// be pinned onto an unrelated attachment with the same basename.
+				$attachment_id = $this->get_attachment_id_by_url( $value, false );
 				if ( $attachment_id ) {
 					$this->record_usage( $attachment_id, $post, $type );
 				}
@@ -988,15 +1081,13 @@ class UsedWhereScanner {
 
 				// Then scan the value as a content blob — catches CSS `background-image:url(...)`,
 				// rich-text fields, encoded-attribute payloads, and any string
-				// holding multiple uploads URLs.
-				if ( preg_match_all( '/\/wp-content\/uploads\/([^\s"\'<>)\\\;,]+)/i', $haystack, $url_matches ) ) {
+				// holding multiple uploads URLs. Each match must end in a known
+				// media extension; see extract_upload_paths_from_string().
+				$rel_paths = $this->extract_upload_paths_from_string( $haystack );
+				if ( ! empty( $rel_paths ) ) {
 					$base_url = $this->get_uploads_base_url();
-					foreach ( $url_matches[1] as $rel ) {
-						$rel = rtrim( $rel, ").,;:!?" );
-						if ( '' === $rel ) {
-							continue;
-						}
-						$blob_id = $this->get_attachment_id_by_url( $base_url . $rel );
+					foreach ( $rel_paths as $rel ) {
+						$blob_id = $this->get_attachment_id_by_url( $base_url . $rel, false );
 						if ( $blob_id ) {
 							$this->record_usage( $blob_id, $post, $type );
 						}
@@ -1005,9 +1096,118 @@ class UsedWhereScanner {
 			}
 
 			if ( is_array( $value ) ) {
-				$this->extract_attachment_ids_from_array( $value, $post, $type, $depth + 1 );
+				$this->extract_attachment_ids_from_array( $value, $post, $type, $depth + 1, $in_builder_context );
 			}
 		}
+	}
+
+	/**
+	 * Whether the caller-provided `$type` label opts the walk straight into
+	 * builder context. These are the entry points that hand us shape-checked
+	 * widget data (Elementor JSON, builder meta blobs) — never generic post
+	 * meta — so the numeric-key extraction is safe from the first level.
+	 *
+	 * @param string $type Caller-provided usage type.
+	 * @return bool
+	 */
+	/**
+	 * Whether a post is an Elementor "kit" — the global-defaults store.
+	 *
+	 * Kit posts live in the `elementor_library` CPT with template type `kit`
+	 * (set via the `_elementor_template_type` meta). They hold the site's
+	 * default styles and references to images used as defaults (page
+	 * background, header logo, etc.). Scanning them produces false positives
+	 * because the kit doesn't "use" those images — it just stores them as
+	 * defaults that Elementor applies elsewhere.
+	 *
+	 * @param \WP_Post $post Post to inspect.
+	 *
+	 * @return bool
+	 */
+	private function is_elementor_kit( \WP_Post $post ): bool {
+		if ( 'elementor_library' !== $post->post_type ) {
+			return false;
+		}
+		$template_type = (string) get_post_meta( $post->ID, '_elementor_template_type', true );
+		return 'kit' === $template_type;
+	}
+
+	private function is_builder_caller_type( string $type ): bool {
+		return in_array(
+			$type,
+			[ 'elementor', 'beaver_builder', 'divi', 'brizy', 'wpbakery' ],
+			true
+		);
+	}
+
+	/**
+	 * Whether an array's own keys identify it as a builder/block structure.
+	 *
+	 * Used to promote a generic-meta walk into builder context once it
+	 * descends into a widget/block payload. Markers are intentionally
+	 * structural identifiers used by the major page builders and the
+	 * Gutenberg block parser — not generic field names — so that we don't
+	 * mis-promote arbitrary CPT meta that happens to use words like
+	 * `'image'` or `'id'`.
+	 *
+	 * @param array $data Array to inspect.
+	 * @return bool
+	 */
+	/**
+	 * Extract uploads-relative paths from a string blob.
+	 *
+	 * Tighter than a bare `/wp-content/uploads/...` regex: each match is
+	 * trimmed of trailing punctuation and required to end in a known media
+	 * extension before being returned. This prevents partial URL fragments
+	 * inside encoded HTML / backup blobs / log meta from being resolved as
+	 * real attachments (a known source of false-positive "used" records).
+	 *
+	 * @param string $haystack String to scan.
+	 *
+	 * @return array<int,string> Uploads-relative paths (without leading `/wp-content/uploads/`).
+	 */
+	private function extract_upload_paths_from_string( string $haystack ): array {
+		if ( '' === $haystack || false === strpos( $haystack, '/wp-content/uploads/' ) ) {
+			return [];
+		}
+
+		if ( ! preg_match_all( '/\/wp-content\/uploads\/([^\s"\'<>)\\\;,]+)/i', $haystack, $matches ) ) {
+			return [];
+		}
+
+		$exts = 'jpg|jpeg|jpe|gif|png|webp|svg|bmp|ico|tif|tiff|heic|heif|avif|mp3|wav|ogg|m4a|mp4|m4v|mov|avi|wmv|flv|webm|mkv|pdf|doc|docx|xls|xlsx|ppt|pptx|csv|txt|zip|rar|7z|psd|ai|eps';
+		$out  = [];
+
+		foreach ( $matches[1] as $rel ) {
+			$rel = rtrim( $rel, ").,;:!?" );
+			if ( '' === $rel ) {
+				continue;
+			}
+			// Require a real media extension at the tail of the path.
+			if ( ! preg_match( '/\.(' . $exts . ')$/i', $rel ) ) {
+				continue;
+			}
+			$out[] = $rel;
+		}
+
+		return $out;
+	}
+
+	private function array_has_builder_marker( array $data ): bool {
+		// Markers are looked up by isset() — cheap, no full key walk.
+		// Only structural identifiers go here. We deliberately avoid generic
+		// names like `settings` or `type` because ACF / random CPT meta use
+		// them too, and a false promote here would re-introduce the noise
+		// this gate exists to suppress.
+		// Beaver Builder is intentionally not detected by the generic
+		// `type` + `node` combo — that pair appears in plenty of unrelated
+		// serialized meta (relation lists, ACF flexible content, etc.) and
+		// promoting on it re-introduces false positives. Beaver entry points
+		// already opt in via `is_builder_caller_type( 'beaver_builder' )`.
+		return isset( $data['widgetType'] )         // Elementor widget.
+			|| isset( $data['elType'] )             // Elementor element.
+			|| isset( $data['blockName'] )          // Gutenberg parsed block.
+			|| isset( $data['et_pb_module_type'] ); // Divi module marker.
 	}
 
 	/**
@@ -1050,7 +1250,8 @@ class UsedWhereScanner {
 				continue;
 			}
 
-			$is_private = strpos( $key, '_' ) === 0;
+			$is_private        = strpos( $key, '_' ) === 0;
+			$is_image_like_key = $this->is_image_like_meta_key( $key );
 
 			foreach ( (array) $values as $value ) {
 				// For _prefixed keys: only scan serialized arrays and JSON (not plain values).
@@ -1059,8 +1260,15 @@ class UsedWhereScanner {
 					continue;
 				}
 
-				// For non-prefixed keys: check plain values too.
+				// For non-prefixed keys: only treat a bare numeric value as an
+				// attachment reference when the key name itself signals an image
+				// field. Otherwise a numeric meta (related-post ID, term ID,
+				// price, quantity, sort order, etc.) that happens to match an
+				// attachment ID is recorded as a false-positive usage.
 				if ( is_numeric( $value ) ) {
+					if ( ! $is_image_like_key ) {
+						continue;
+					}
 					$id = absint( $value );
 					if ( $id && isset( $attachment_ids[ $id ] ) ) {
 						$this->record_usage( $id, $post, 'meta' );
@@ -1070,6 +1278,50 @@ class UsedWhereScanner {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Whether a meta key name looks like it stores an image/attachment reference.
+	 *
+	 * Gate for treating bare numeric meta values as attachment IDs. Without
+	 * this gate, any numeric meta (related-post ID, term ID, price, quantity,
+	 * sort order) that happens to match an attachment ID gets recorded as a
+	 * usage — the dominant source of false positives in the unused finder.
+	 *
+	 * @param string $key Meta key.
+	 *
+	 * @return bool
+	 */
+	private function is_image_like_meta_key( string $key ): bool {
+		$key = strtolower( $key );
+
+		// Common image/attachment field naming patterns.
+		$needles = [
+			'image',
+			'thumbnail',
+			'thumb',
+			'photo',
+			'picture',
+			'attachment',
+			'gallery',
+			'media',
+			'logo',
+			'icon',
+			'avatar',
+			'banner',
+			'cover',
+			'featured',
+			'background',
+			'poster',
+		];
+
+		foreach ( $needles as $needle ) {
+			if ( false !== strpos( $key, $needle ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -1120,23 +1372,25 @@ class UsedWhereScanner {
 		// 4. URL or content containing /wp-content/uploads/.
 		if ( strpos( $value, '/wp-content/uploads/' ) !== false ) {
 			// 4a. Try the value as a single direct URL first (plain URL meta fields).
-			$attachment_id = $this->get_attachment_id_by_url( $value );
+			// Meta values store full uploads paths verbatim — disable basename
+			// fallback so unrelated entries that share a common filename
+			// (e.g. `audio.mp3`, `logo.png`) can't be pinned onto this post.
+			$attachment_id = $this->get_attachment_id_by_url( $value, false );
 			if ( $attachment_id ) {
 				$this->record_usage( $attachment_id, $post, 'meta' );
 			}
 
 			// 4b. Decode HTML entities so URLs inside encoded attributes
 			//     (e.g. data-image="&lt;img src=&quot;...&quot;&gt;") are reachable,
-			//     then extract every uploads URL from the blob.
-			$decoded = html_entity_decode( $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
-			if ( preg_match_all( '/\/wp-content\/uploads\/([^\s"\'<>)\\\;,]+)/i', $decoded, $url_matches ) ) {
+			//     then extract every uploads URL from the blob. Each match must
+			//     end in a known media extension to keep encoded HTML fragments
+			//     from being mis-resolved.
+			$decoded   = html_entity_decode( $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+			$rel_paths = $this->extract_upload_paths_from_string( $decoded );
+			if ( ! empty( $rel_paths ) ) {
 				$base_url = $this->get_uploads_base_url();
-				foreach ( $url_matches[1] as $rel ) {
-					$rel = rtrim( $rel, ").,;:!?" );
-					if ( '' === $rel ) {
-						continue;
-					}
-					$blob_id = $this->get_attachment_id_by_url( $base_url . $rel );
+				foreach ( $rel_paths as $rel ) {
+					$blob_id = $this->get_attachment_id_by_url( $base_url . $rel, false );
 					if ( $blob_id ) {
 						$this->record_usage( $blob_id, $post, 'meta' );
 					}
@@ -1212,13 +1466,27 @@ class UsedWhereScanner {
 
 			update_post_meta( $attachment_id, self::META_KEY, $new_usages );
 
-			// Set post_parent if not already set.
+			// Set post_parent if not already set. Prefer a 'featured' usage
+			// (the image is the post's thumbnail) over any other usage type,
+			// since featured-image attachment is the strongest signal of ownership.
 			$current_parent = (int) get_post_field( 'post_parent', $attachment_id );
-			if ( ! $current_parent && ! empty( $new_usages[0]['post_id'] ) ) {
-				wp_update_post( [
-					'ID'          => $attachment_id,
-					'post_parent' => (int) $new_usages[0]['post_id'],
-				] );
+			if ( ! $current_parent ) {
+				$parent_post_id = 0;
+				foreach ( $new_usages as $usage ) {
+					if ( ( $usage['usage_type'] ?? '' ) === 'featured' && ! empty( $usage['post_id'] ) ) {
+						$parent_post_id = (int) $usage['post_id'];
+						break;
+					}
+				}
+				if ( ! $parent_post_id && ! empty( $new_usages[0]['post_id'] ) ) {
+					$parent_post_id = (int) $new_usages[0]['post_id'];
+				}
+				if ( $parent_post_id ) {
+					wp_update_post( [
+						'ID'          => $attachment_id,
+						'post_parent' => $parent_post_id,
+					] );
+				}
 			}
 		}
 
@@ -1318,15 +1586,63 @@ class UsedWhereScanner {
 	}
 
 	/**
+	 * Build attachment_id → owning post_id map for featured images.
+	 *
+	 * Single `_thumbnail_id` postmeta query, joined against published posts.
+	 * Used by `record_usages_from_urls()` to drop `permalink` / `rendered`
+	 * hits where the matched attachment is the featured image of a *different*
+	 * post — i.e. a related-posts / recent-posts widget rendering another
+	 * post's thumbnail on this page.
+	 *
+	 * @return void
+	 */
+	private function build_featured_image_owners(): void {
+		if ( null !== $this->featured_image_owners ) {
+			return;
+		}
+
+		$this->featured_image_owners = [];
+
+		$rows = Fns::DB()->select( 'post_id', 'meta_value' )
+			->from( 'postmeta' )
+			->where( 'meta_key', '=', '_thumbnail_id' )
+			->get();
+
+		foreach ( ( $rows ?: [] ) as $row ) {
+			$post_id       = absint( $row['post_id'] ?? 0 );
+			$attachment_id = absint( $row['meta_value'] ?? 0 );
+			if ( ! $post_id || ! $attachment_id ) {
+				continue;
+			}
+			// First-seen wins — we only need to know that *some* post owns the
+			// attachment via featured image, not the full list.
+			if ( ! isset( $this->featured_image_owners[ $attachment_id ] ) ) {
+				$this->featured_image_owners[ $attachment_id ] = $post_id;
+			}
+		}
+	}
+
+	/**
 	 * Get attachment ID by its URL using the preloaded lookup map.
 	 *
 	 * Falls back to basename lookup for scaled/sized variants (e.g., image-300x200.jpg).
 	 *
-	 * @param string $url Attachment URL or partial path.
+	 * Path-anchored lookups are always safe — relative paths are unique per
+	 * attachment in the map. The basename fallback exists for HTML where
+	 * size-suffixed image URLs (`hero-300x200.jpg`) need to fold onto the
+	 * original. Callers operating on user-set or builder-stored single-value
+	 * URLs (meta, theme mods, widget options, term meta) should pass
+	 * `$allow_basename_fallback = false` — those sources record full paths
+	 * verbatim, so a basename-only hit there is always a false positive
+	 * pinning unrelated content onto an attachment that happens to share a
+	 * common filename (`audio.mp3`, `logo.png`, etc.).
+	 *
+	 * @param string $url                     Attachment URL or partial path.
+	 * @param bool   $allow_basename_fallback Allow basename / stripped-basename matches.
 	 *
 	 * @return int Attachment ID, or 0 if not found.
 	 */
-	private function get_attachment_id_by_url( string $url ): int {
+	private function get_attachment_id_by_url( string $url, bool $allow_basename_fallback = true ): int {
 		if ( null === $this->url_lookup_map ) {
 			// Safety fallback if called outside a batch context.
 			$this->build_url_lookup_map();
@@ -1353,6 +1669,10 @@ class UsedWhereScanner {
 			$stripped_rel = preg_replace( '/-\d+x\d+(\.[a-zA-Z]+)$/', '$1', $rel_path );
 			if ( $stripped_rel !== $rel_path && isset( $this->url_lookup_map[ $stripped_rel ] ) && $this->url_lookup_map[ $stripped_rel ] > 0 ) {
 				return $this->url_lookup_map[ $stripped_rel ];
+			}
+
+			if ( ! $allow_basename_fallback ) {
+				return 0;
 			}
 
 			// 3. Basename fallback. The map stores `0` for any basename that
@@ -1448,6 +1768,7 @@ class UsedWhereScanner {
 		$this->known_attachment_ids = null;
 		$this->upload_base_url = null;
 		$this->fallback_attachment_ids = null;
+		$this->featured_image_owners = null;
 	}
 
 	/**
@@ -1921,6 +2242,7 @@ class UsedWhereScanner {
 
 		$incidental_types = [ 'permalink', 'rendered' ];
 		$owning_types     = array_flip( self::OWNING_USAGE_TYPES );
+		$sitewide_types   = array_flip( self::SITEWIDE_USAGE_TYPES );
 
 		foreach ( $attached_rows as $row ) {
 			$attachment_id = absint( $row['post_id'] ?? 0 );
@@ -1930,13 +2252,19 @@ class UsedWhereScanner {
 				continue;
 			}
 
-			// First pass: collect post_ids that have an owning usage on this attachment.
+			// First pass: collect post_ids that have an owning usage on this
+			// attachment, and detect any sitewide ownership (logo/widget/etc.).
 			$owning_post_ids = [];
 			$has_incidental  = false;
+			$has_sitewide    = false;
 
 			foreach ( $usages as $usage ) {
 				$type = (string) ( $usage['usage_type'] ?? '' );
 				$pid  = (int) ( $usage['post_id'] ?? 0 );
+				if ( isset( $sitewide_types[ $type ] ) ) {
+					$has_sitewide = true;
+					continue;
+				}
 				if ( ! $pid ) {
 					continue;
 				}
@@ -1947,22 +2275,34 @@ class UsedWhereScanner {
 				}
 			}
 
-			// Nothing to do if there's no owning signal (we trust the
-			// permalink hits as the only evidence) or no incidental records
-			// to drop.
-			if ( empty( $owning_post_ids ) || ! $has_incidental ) {
+			// Nothing to do if there are no incidental records to drop.
+			if ( ! $has_incidental ) {
 				continue;
 			}
 
-			// Second pass: keep every owning usage; keep incidental usages
-			// only if they're on a post that already owns the image (then
-			// they're confirmation, not contamination).
+			// Nothing to do if there's no owning signal at all (no structural
+			// per-post owner AND no sitewide owner) — we trust the permalink
+			// hits as the only evidence we have.
+			if ( empty( $owning_post_ids ) && ! $has_sitewide ) {
+				continue;
+			}
+
+			// Second pass: keep every owning / sitewide usage; for incidental
+			// usages, the rule is:
+			//   - if the image is owned sitewide (logo / widget / etc.), drop
+			//     every permalink / rendered record — they're chrome
+			//     repeating on every page, not real per-post usage.
+			//   - otherwise keep an incidental record only when it's on a post
+			//     that already owns the image (then it's confirmation).
 			$cleaned = [];
 			foreach ( $usages as $usage ) {
 				$type = (string) ( $usage['usage_type'] ?? '' );
 				$pid  = (int) ( $usage['post_id'] ?? 0 );
 
 				if ( in_array( $type, $incidental_types, true ) ) {
+					if ( $has_sitewide ) {
+						continue; // drop all incidental — image is chrome
+					}
 					if ( ! isset( $owning_post_ids[ $pid ] ) ) {
 						continue; // drop incidental on non-owning post
 					}
@@ -2012,6 +2352,7 @@ class UsedWhereScanner {
 		$this->known_attachment_ids = null;
 		$this->upload_base_url = null;
 		$this->fallback_attachment_ids = null;
+		$this->featured_image_owners = null;
 	}
 
 	/**
@@ -2109,7 +2450,7 @@ class UsedWhereScanner {
 			// Try to resolve from URL.
 			$bg_url = get_theme_mod( 'background_image', '' );
 			if ( $bg_url ) {
-				$bg_image_id = $this->get_attachment_id_by_url( $bg_url );
+				$bg_image_id = $this->get_attachment_id_by_url( $bg_url, false );
 			}
 		}
 		if ( $bg_image_id && isset( $known_ids[ $bg_image_id ] ) ) {
@@ -2121,6 +2462,9 @@ class UsedWhereScanner {
 
 		// 7. Widget images (scan active widget options for upload URLs/IDs).
 		$this->detect_widget_images( $known_ids );
+
+		// 8. Taxonomy term meta images (category thumbnails, featured images, SEO images).
+		$this->detect_term_meta_images( $known_ids );
 	}
 
 	/**
@@ -2210,12 +2554,133 @@ class UsedWhereScanner {
 						}
 					}
 				}
-				// Check for upload URLs in text/HTML content fields.
+				// Check for upload URLs in text/HTML content fields. Widget
+				// option strings store full URLs verbatim, so disable the
+				// basename fallback to keep generic filenames from collapsing
+				// onto unrelated attachments.
 				foreach ( [ 'text', 'content', 'url' ] as $field ) {
 					if ( ! empty( $instance[ $field ] ) && is_string( $instance[ $field ] ) && strpos( $instance[ $field ], '/wp-content/uploads/' ) !== false ) {
-						$att_id = $this->get_attachment_id_by_url( $instance[ $field ] );
+						$att_id = $this->get_attachment_id_by_url( $instance[ $field ], false );
 						if ( $att_id ) {
 							$this->record_sitewide_usage( $att_id, 'widget' );
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Detect images stored as taxonomy term meta.
+	 *
+	 * Covers category/tag/custom taxonomy images set by plugins like:
+	 * - WooCommerce (`thumbnail_id` term meta for product categories)
+	 * - Categories Images / Category Image plugins (`category_image_id`, `term_image_id`)
+	 * - ACF term fields (numeric attachment IDs in term meta)
+	 * - Yoast SEO (`wpseo_taxonomy_meta` option with `wpseo_opengraph-image-id`)
+	 * - Rank Math (`rank_math_facebook_image_id`, `rank_math_twitter_image_id`)
+	 *
+	 * Also scans all term meta values for upload URLs to catch URL-based
+	 * category image implementations.
+	 *
+	 * @param array<int, true> $known_ids Set of known attachment IDs.
+	 *
+	 * @return void
+	 */
+	private function detect_term_meta_images( array $known_ids ): void {
+		$taxonomies = get_taxonomies( [ 'public' => true ], 'names' );
+		if ( empty( $taxonomies ) ) {
+			return;
+		}
+
+		// Well-known term meta keys that store attachment IDs.
+		$id_meta_keys = [
+			'thumbnail_id',                   // WooCommerce product categories.
+			'category_image_id',              // Categories Images plugin.
+			'term_image_id',                  // Category Image plugin variants.
+			'brand_thumbnail_id',             // WooCommerce Brands.
+			'rank_math_facebook_image_id',    // Rank Math SEO.
+			'rank_math_twitter_image_id',     // Rank Math SEO.
+			'_flavor_term_image',             // flavor theme.
+		];
+
+		/**
+		 * Filter the list of term meta keys that are known to store attachment IDs.
+		 *
+		 * Plugins that store category/term images can add their meta key here so
+		 * the used-where scanner picks them up.
+		 *
+		 * @param string[] $id_meta_keys Meta key names.
+		 */
+		$id_meta_keys = apply_filters( 'tsmlt_used_where_term_image_meta_keys', $id_meta_keys );
+
+		// Well-known term meta keys that store image URLs.
+		$url_meta_keys = [
+			'category_image',     // Categories Images plugin (URL variant).
+			'term_image',         // Generic category image plugins.
+		];
+
+		/**
+		 * Filter the list of term meta keys that are known to store image URLs.
+		 *
+		 * @param string[] $url_meta_keys Meta key names.
+		 */
+		$url_meta_keys = apply_filters( 'tsmlt_used_where_term_image_url_meta_keys', $url_meta_keys );
+
+		$terms = get_terms(
+			[
+				'taxonomy'   => array_values( $taxonomies ),
+				'hide_empty' => false,
+				'fields'     => 'ids',
+			]
+		);
+
+		if ( is_wp_error( $terms ) || empty( $terms ) ) {
+			return;
+		}
+
+		foreach ( $terms as $term_id ) {
+			$term_id = absint( $term_id );
+
+			// Check ID-based meta keys.
+			foreach ( $id_meta_keys as $meta_key ) {
+				$img_id = absint( get_term_meta( $term_id, $meta_key, true ) );
+				if ( $img_id && isset( $known_ids[ $img_id ] ) ) {
+					$this->record_sitewide_usage( $img_id, 'term_meta' );
+				}
+			}
+
+			// Check URL-based meta keys. Term meta stores full URLs verbatim
+			// — disable basename fallback to avoid pinning unrelated entries
+			// onto attachments with common filenames.
+			foreach ( $url_meta_keys as $meta_key ) {
+				$url = get_term_meta( $term_id, $meta_key, true );
+				if ( ! empty( $url ) && is_string( $url ) && strpos( $url, '/wp-content/uploads/' ) !== false ) {
+					$att_id = $this->get_attachment_id_by_url( $url, false );
+					if ( $att_id && isset( $known_ids[ $att_id ] ) ) {
+						$this->record_sitewide_usage( $att_id, 'term_meta' );
+					}
+				}
+			}
+		}
+
+		// Yoast SEO stores taxonomy OG/Twitter images in a single option blob.
+		$yoast_tax_meta = get_option( 'wpseo_taxonomy_meta', [] );
+		if ( is_array( $yoast_tax_meta ) ) {
+			foreach ( $yoast_tax_meta as $taxonomy => $terms_data ) {
+				if ( ! is_array( $terms_data ) ) {
+					continue;
+				}
+				foreach ( $terms_data as $tid => $meta ) {
+					if ( ! is_array( $meta ) ) {
+						continue;
+					}
+					foreach ( [ 'wpseo_opengraph-image-id', 'wpseo_twitter-image-id' ] as $yoast_key ) {
+						if ( ! empty( $meta[ $yoast_key ] ) ) {
+							$img_id = absint( $meta[ $yoast_key ] );
+							if ( $img_id && isset( $known_ids[ $img_id ] ) ) {
+								$this->record_sitewide_usage( $img_id, 'term_meta' );
+							}
 						}
 					}
 				}
@@ -2293,6 +2758,7 @@ class UsedWhereScanner {
 		$this->known_attachment_ids = null;
 		$this->upload_base_url = null;
 		$this->fallback_attachment_ids = null;
+		$this->featured_image_owners = null;
 	}
 
 	/**
@@ -2310,9 +2776,23 @@ class UsedWhereScanner {
 		}
 
 		$attachment_id = $this->get_attachment_id_by_url( $url );
-		if ( $attachment_id ) {
-			$this->record_usage( $attachment_id, $post, $usage_type );
+		if ( ! $attachment_id ) {
+			return;
 		}
+
+		// Same rule as record_usages_from_urls(): on HTML-scan paths, drop
+		// thumbnails of *other* posts being shown by related-posts widgets,
+		// schema markup, etc. The image is owned by the featured-image post,
+		// not by whatever post happens to render the widget.
+		if ( 'permalink' === $usage_type || 'rendered' === $usage_type ) {
+			$this->build_featured_image_owners();
+			$owner = $this->featured_image_owners[ $attachment_id ] ?? 0;
+			if ( $owner && $owner !== $post->ID ) {
+				return;
+			}
+		}
+
+		$this->record_usage( $attachment_id, $post, $usage_type );
 	}
 
 	/**
