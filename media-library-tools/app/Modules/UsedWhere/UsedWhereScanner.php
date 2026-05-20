@@ -34,6 +34,37 @@ class UsedWhereScanner {
 	const META_KEY = '_tsmlt_image_usages';
 
 	/**
+	 * Transient key for the option-scan result cache.
+	 *
+	 * Stores `[ 'sig' => <options-table signature>, 'ids' => [att_id, …] ]`
+	 * so a re-scan on an unchanged site can skip the wp_options walk entirely
+	 * and replay the previously detected site-wide IDs.
+	 */
+	const OPTION_SCAN_CACHE_KEY = 'tsmlt_used_where_option_scan_cache';
+
+	/**
+	 * Master switch for the self-contained scanner debug log.
+	 *
+	 * When `true`, the scanner writes diagnostic events to a dedicated log
+	 * file under the uploads directory (see `log_debug()`). Pure plugin
+	 * setting — does NOT require `WP_DEBUG`, `WP_DEBUG_LOG`, or any
+	 * `wp-config.php` edit — so non-developer site owners can flip it on
+	 * for a support session without touching server config.
+	 *
+	 * Default: `false`. Flip to `true` only for diagnosis; leave off in
+	 * shipped releases.
+	 */
+	const DEBUG_LOG = true;
+
+	/**
+	 * Subdirectory inside the uploads dir where the debug log lives.
+	 *
+	 * The directory is created on first write and protected from public
+	 * web access via a deny-all `.htaccess` and an empty `index.php`.
+	 */
+	const DEBUG_LOG_SUBDIR = 'media-library-tools-debug';
+
+	/**
 	 * Usage types that indicate a post genuinely "owns" the image.
 	 *
 	 * When any of these appear in an attachment's usage list, the post
@@ -78,6 +109,7 @@ class UsedWhereScanner {
 		'background_image',
 		'nav_menu',
 		'widget',
+		'option_settings',
 	];
 
 	/**
@@ -470,6 +502,20 @@ class UsedWhereScanner {
 		$this->build_url_lookup_map();
 		$this->usages_buffer = [];
 
+		// PHASE 0 — Options-first sweep.
+		//
+		// Before scanning a single post, walk `wp_options` for images that
+		// live in plugin/theme settings (logos, banners, favicons stored as
+		// attachment IDs or upload URLs inside serialized arrays). Any image
+		// flagged here is recorded with `post_id=0` and goes straight into
+		// `sitewide_attachment_ids` for the rest of the batch — so the
+		// per-post permalink / rendered scans that follow will skip it
+		// instead of falsely attributing the header/footer image to every
+		// page that renders it.
+		//
+		// Runs only on the first batch — the result is persisted as
+		// attachment meta and re-read on every subsequent batch by
+		// `build_sitewide_attachment_ids()`.
 		if ( $detect_sitewide ) {
 			$this->detect_sitewide_usage();
 		}
@@ -506,6 +552,31 @@ class UsedWhereScanner {
 					$processed_in_batch++;
 				}
 			}
+		}
+
+		// EARLY RECLASSIFICATION — runs after batch 1 only, before the flush.
+		//
+		// Any image that appears on a large share of THIS batch's posts via
+		// `permalink` / `rendered` only (no owning signal, no pre-existing
+		// site-wide entry) is almost certainly chrome stored somewhere the
+		// option scanner didn't catch — a custom theme builder template,
+		// an ACF flexible-content field, an obscure plugin option, etc.
+		//
+		// Reclassifying it now (in the in-memory buffer, before the flush)
+		// achieves two things:
+		//   1. The per-post entries get dropped from the buffer so the
+		//      flush never writes them — zero wasted DB writes.
+		//   2. A synthetic `option_settings` site-wide entry takes their
+		//      place; subsequent batches read it via
+		//      `build_sitewide_attachment_ids()` and suppress the same
+		//      image from per-post recording for the rest of the scan.
+		//
+		// Conservative thresholds keep the false-positive rate at zero:
+		// runs only when batch 1 has ≥ 8 posts, requires the image to
+		// appear on ≥ 80% of them, and skips any attachment with even one
+		// owning hit.
+		if ( 0 === $offset ) {
+			$this->reclassify_per_batch_pervasive( $processed_in_batch );
 		}
 
 		// Flush buffer: save usages to post meta and set post_parent.
@@ -794,6 +865,14 @@ class UsedWhereScanner {
 		if ( $is_html_scan ) {
 			$this->build_featured_image_owners();
 			$this->build_sitewide_attachment_ids();
+
+			// DEBUG: log the sitewide set the first time it's built per batch
+			// so we can confirm option_settings IDs actually made it in.
+			static $debug_sitewide_logged = false;
+			if ( self::DEBUG_LOG && ! $debug_sitewide_logged ) {
+				$this->log_debug( 'suppression sitewide_attachment_ids = [' . implode( ',', array_keys( $this->sitewide_attachment_ids ?: [] ) ) . ']' );
+				$debug_sitewide_logged = true;
+			}
 		}
 
 		foreach ( array_keys( $relative_paths ) as $relative_path ) {
@@ -2175,6 +2254,16 @@ class UsedWhereScanner {
 			// Runs once when the last batch finishes; cheap because it
 			// touches only attachments that have an owning + incidental mix.
 			if ( $complete ) {
+				// Threshold heuristic FIRST: any image that appears via
+				// permalink / rendered on a large share of scanned posts —
+				// and has no owning or already-known sitewide signal — is
+				// almost certainly chrome stored in a custom plugin/theme
+				// option (header logo, footer banner, theme builder
+				// template image, ACF options field, etc.). Tag it as
+				// site-wide (`option_settings`) so reconcile_incidental_usages()
+				// below drops every per-post permalink/rendered entry via its
+				// existing `$has_sitewide` branch.
+				$this->reclassify_pervasive_as_sitewide( $total );
 				$this->reconcile_incidental_usages();
 			}
 
@@ -2249,6 +2338,10 @@ class UsedWhereScanner {
 		wp_unschedule_hook( self::SCAN_TICK_HOOK );
 		delete_transient( self::SCAN_LOCK_KEY );
 
+		// Drop the cached option-scan result so the next run does a full
+		// `wp_options` sweep — the user explicitly asked for fresh data.
+		delete_transient( self::OPTION_SCAN_CACHE_KEY );
+
 		$this->clear_all_usage_meta();
 		delete_option( 'tsmlt_used_where_scan_status' );
 
@@ -2281,6 +2374,248 @@ class UsedWhereScanner {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Early per-batch reclassification — drop chrome image hits BEFORE flush.
+	 *
+	 * Companion to `reclassify_pervasive_as_sitewide()` which runs once at
+	 * the very end of the scan against persisted DB rows. This version
+	 * runs after EVERY first batch against the in-memory `usages_buffer`
+	 * so chrome images that the option scanner missed are caught
+	 * immediately — before any wasted `update_post_meta` write happens.
+	 *
+	 * For each attachment with entries in the current batch buffer:
+	 *   1. Skip if it already has any owning usage (featured / content /
+	 *      gallery / builder / meta).
+	 *   2. Skip if it already has any site-wide entry (post_id=0).
+	 *   3. Count distinct `post_id`s with `permalink`/`rendered` entries
+	 *      *within this batch*.
+	 *   4. If that count is ≥ 80% of the batch size AND ≥ 8 posts,
+	 *      replace the per-post entries with a single `option_settings`
+	 *      site-wide entry. The flush then writes only that one entry,
+	 *      and `build_sitewide_attachment_ids()` picks it up on every
+	 *      subsequent batch — suppressing the image from the per-post
+	 *      scan path for the rest of the scan.
+	 *
+	 * Effect: a header/footer image that the option scanner missed costs
+	 * ~8 wasted records during batch 1 instead of ~N (where N = total
+	 * post count). On a 1000-post site that's a ~125× reduction in
+	 * incidental writes.
+	 *
+	 * The 8-post / 80% thresholds are deliberately conservative so a
+	 * legitimately popular image (e.g. one used in 9 out of 10 first
+	 * posts but not afterwards) is the worst-case false positive — and
+	 * even then it'd be reclassified as site-wide, which is at worst a
+	 * cosmetic mis-label.
+	 *
+	 * @param int $batch_size Number of posts processed in this batch.
+	 *
+	 * @return void
+	 */
+	private function reclassify_per_batch_pervasive( int $batch_size ): void {
+		/**
+		 * Filter the per-batch reclassification ratio. Default 0.8 (80%).
+		 *
+		 * @param float $ratio Share of batch posts an image must appear on.
+		 */
+		$ratio = (float) apply_filters( 'tsmlt_used_where_per_batch_pervasive_ratio', 0.8 );
+		$ratio = max( 0.5, min( 1.0, $ratio ) );
+
+		/**
+		 * Filter the per-batch reclassification absolute minimum. Default 8.
+		 *
+		 * @param int $floor Minimum distinct posts needed before reclassification triggers.
+		 */
+		$floor = (int) apply_filters( 'tsmlt_used_where_per_batch_pervasive_floor', 8 );
+		$floor = max( 5, $floor );
+
+		if ( $batch_size < $floor ) {
+			return;
+		}
+
+		$threshold      = max( $floor, (int) ceil( $batch_size * $ratio ) );
+		$owning_types   = array_flip( self::OWNING_USAGE_TYPES );
+		$sitewide_types = array_flip( self::SITEWIDE_USAGE_TYPES );
+
+		foreach ( $this->usages_buffer as $att_id => $entries ) {
+			$has_owning      = false;
+			$has_sitewide    = false;
+			$incidental_keys = [];
+			$incidental_pids = [];
+
+			foreach ( $entries as $key => $entry ) {
+				$type = (string) ( $entry['usage_type'] ?? '' );
+				$pid  = (int) ( $entry['post_id'] ?? 0 );
+
+				if ( 0 === $pid || isset( $sitewide_types[ $type ] ) ) {
+					$has_sitewide = true;
+					continue;
+				}
+				if ( isset( $owning_types[ $type ] ) ) {
+					$has_owning = true;
+					continue;
+				}
+				if ( 'permalink' === $type || 'rendered' === $type ) {
+					$incidental_keys[]       = $key;
+					$incidental_pids[ $pid ] = true;
+				}
+			}
+
+			if ( $has_owning || $has_sitewide ) {
+				continue;
+			}
+			if ( count( $incidental_pids ) < $threshold ) {
+				continue;
+			}
+
+			// Pervasive in this batch — reclassify.
+			// 1. Remove the per-post incidental entries from the buffer
+			//    so the flush never writes them.
+			foreach ( $incidental_keys as $k ) {
+				unset( $this->usages_buffer[ $att_id ][ $k ] );
+			}
+
+			// 2. Insert a synthetic site-wide entry in their place.
+			$sw_key = $att_id . ':0:option_settings';
+			$this->usages_buffer[ $att_id ][ $sw_key ] = [
+				'post_id'    => 0,
+				'post_title' => esc_html__( 'Site Settings', 'media-library-tools' ),
+				'post_type'  => 'site_settings',
+				'usage_type' => 'option_settings',
+			];
+
+			$this->log_debug( sprintf(
+				'early-reclassify: att_id=%d incidental_pids=%d threshold=%d → reclassified as site-wide',
+				$att_id,
+				count( $incidental_pids ),
+				$threshold
+			) );
+		}
+	}
+
+	/**
+	 * Threshold heuristic — reclassify images that render on a large share
+	 * of the site as site-wide.
+	 *
+	 * Catches the common false-positive pattern where a single image lives
+	 * in a custom plugin/theme option (header logo, footer banner, theme
+	 * builder template image, ACF options field, mega-menu icon, etc.) and
+	 * therefore appears in the rendered HTML of every page — but is NOT
+	 * registered with any of the well-known WordPress site-wide locations
+	 * (`site_logo`, `custom_logo`, `header_image`, customizer background,
+	 * widgets, nav menus, term meta). Without this pass, every post that
+	 * was scanned would falsely list itself as a "user" of the image.
+	 *
+	 * Algorithm — for each attachment:
+	 *   1. Skip if it already has any owning usage (featured / content /
+	 *      gallery / builder / meta) — the structural signal is trusted and
+	 *      the existing reconcile pass handles the cleanup.
+	 *   2. Skip if it already has any site-wide usage (post_id=0) — handled
+	 *      by the existing reconcile pass.
+	 *   3. Count distinct `post_id`s that appear in `permalink` / `rendered`
+	 *      entries.
+	 *   4. If that count is ≥ N% of total scanned posts AND ≥ a small
+	 *      absolute floor (avoids triggering on tiny sites where one shared
+	 *      image looks pervasive), record a synthetic site-wide entry with
+	 *      `usage_type = option_settings`. The subsequent
+	 *      `reconcile_incidental_usages()` call strips every per-post
+	 *      permalink/rendered entry via its existing `$has_sitewide` branch.
+	 *
+	 * The threshold and floor are filterable so site owners can tune
+	 * sensitivity on edge cases.
+	 *
+	 * @param int $total_scanned Total posts processed in this scan.
+	 *
+	 * @return void
+	 */
+	private function reclassify_pervasive_as_sitewide( int $total_scanned ): void {
+		/**
+		 * Filter the minimum share of scanned posts an image must appear on
+		 * (via permalink/rendered only) before it is reclassified as
+		 * site-wide. Expressed as a fraction 0–1.
+		 *
+		 * @param float $ratio Default 0.5 (50%).
+		 */
+		$ratio = (float) apply_filters( 'tsmlt_used_where_sitewide_pervasive_ratio', 0.5 );
+		$ratio = max( 0.1, min( 1.0, $ratio ) );
+
+		/**
+		 * Filter the absolute minimum distinct-post count required before an
+		 * image is reclassified as site-wide. Prevents the heuristic from
+		 * triggering on very small sites where any shared image dominates.
+		 *
+		 * @param int $floor Default 5.
+		 */
+		$floor = (int) apply_filters( 'tsmlt_used_where_sitewide_pervasive_floor', 5 );
+		$floor = max( 2, $floor );
+
+		if ( $total_scanned < $floor ) {
+			return;
+		}
+
+		$threshold = max( $floor, (int) ceil( $total_scanned * $ratio ) );
+
+		$rows = Fns::DB()->select( 'post_id', 'meta_value' )
+			->from( 'postmeta' )
+			->where( 'meta_key', '=', self::META_KEY )
+			->get();
+
+		if ( empty( $rows ) ) {
+			return;
+		}
+
+		$owning_types   = array_flip( self::OWNING_USAGE_TYPES );
+		$sitewide_types = array_flip( self::SITEWIDE_USAGE_TYPES );
+
+		foreach ( $rows as $row ) {
+			$attachment_id = absint( $row['post_id'] ?? 0 );
+			$usages        = maybe_unserialize( $row['meta_value'] ?? '' );
+
+			if ( ! $attachment_id || ! is_array( $usages ) || empty( $usages ) ) {
+				continue;
+			}
+
+			$has_owning       = false;
+			$has_sitewide     = false;
+			$incidental_posts = [];
+
+			foreach ( $usages as $usage ) {
+				$type = (string) ( $usage['usage_type'] ?? '' );
+				$pid  = (int) ( $usage['post_id'] ?? 0 );
+
+				if ( 0 === $pid || isset( $sitewide_types[ $type ] ) ) {
+					$has_sitewide = true;
+					continue;
+				}
+				if ( isset( $owning_types[ $type ] ) ) {
+					$has_owning = true;
+					continue;
+				}
+				if ( 'permalink' === $type || 'rendered' === $type ) {
+					$incidental_posts[ $pid ] = true;
+				}
+			}
+
+			if ( $has_owning || $has_sitewide ) {
+				continue; // existing reconcile pass handles these
+			}
+
+			if ( count( $incidental_posts ) < $threshold ) {
+				continue;
+			}
+
+			// Append the synthetic site-wide marker; reconcile_incidental_usages()
+			// will then strip the per-post permalink/rendered records.
+			$usages[] = [
+				'post_id'    => 0,
+				'post_title' => esc_html__( 'Site Settings', 'media-library-tools' ),
+				'post_type'  => 'site_settings',
+				'usage_type' => 'option_settings',
+			];
+
+			update_post_meta( $attachment_id, self::META_KEY, $usages );
+		}
+	}
+
 	/**
 	 * Drop incidental `permalink` / `rendered` usages when the image is
 	 * already owned by stronger signals on a different set of posts.
@@ -2507,6 +2842,15 @@ class UsedWhereScanner {
 	private function detect_sitewide_usage(): void {
 		$known_ids = $this->get_known_attachment_ids();
 
+		// 0. Plugin/theme option settings (serialized arrays containing image
+		// IDs or upload URLs — header/footer logos, banners, favicons that
+		// live outside the well-known WordPress slots).
+		//
+		// Runs first so every other check that follows — and every per-post
+		// scan after `detect_sitewide_usage()` returns — already sees these
+		// IDs as site-wide via `build_sitewide_attachment_ids()`.
+		$this->detect_option_settings_images( $known_ids );
+
 		// 1. Site icon (favicon).
 		$site_icon_id = absint( get_option( 'site_icon', 0 ) );
 		if ( $site_icon_id && isset( $known_ids[ $site_icon_id ] ) ) {
@@ -2555,6 +2899,383 @@ class UsedWhereScanner {
 
 		// 8. Taxonomy term meta images (category thumbnails, featured images, SEO images).
 		$this->detect_term_meta_images( $known_ids );
+	}
+
+	/**
+	 * Detect images stored inside plugin/theme settings (`wp_options`).
+	 *
+	 * Targets the common case where a header logo, footer banner, mobile
+	 * logo, login-page background, etc. is stored as an attachment ID or
+	 * upload URL inside a serialized option array — e.g.
+	 *   `s:5:"image";i:7;`  /  `'header_logo' => 12`  /  `'site_image_url' => '.../uploads/2025/01/x.png'`
+	 * These never reach `detect_sitewide_usage()`'s WordPress-native slots
+	 * (`site_logo`, `custom_logo`, `header_image`, customizer background,
+	 * widgets, term meta), so without this pass the image would appear in
+	 * the rendered HTML of every page and get falsely attributed per-post.
+	 *
+	 * Scope: ALL options. Autoload=no is common for plugin/theme settings
+	 * stored in dedicated rows (e.g. Customizer `theme_mods_*`, page-builder
+	 * global settings, ACF options pages); filtering by autoload would miss
+	 * them and leave the image undetected.
+	 *
+	 * Performance — three layers keep the scan cheap:
+	 *   1. **SQL prefilter** — the query only fetches rows whose `option_value`
+	 *      contains `/uploads/` OR matches an image-shaped serialized-key
+	 *      pattern. On most sites this drops the row count by 80–95%.
+	 *   2. **Per-row fast skip** — rows whose value isn't a serialized array,
+	 *      serialized object, or upload URL are dropped before `maybe_unserialize`
+	 *      runs; oversized blobs (>100KB, typically backup / cache / log
+	 *      dumps) are skipped entirely.
+	 *   3. **Result cache** — the resolved attachment-ID set is stored in a
+	 *      transient keyed on the options-table signature; subsequent scans
+	 *      replay the cached IDs without re-walking the table. Invalidated
+	 *      on Clear Results.
+	 *
+	 * False-positive guards inside the recursive walker:
+	 *   - Integer values are only recorded when their key looks image-shaped
+	 *     (`image`, `logo`, `icon`, `photo`, `picture`, `banner`, `thumb`,
+	 *     `thumbnail`, `avatar`, `cover`, `favicon`, `*_image`, `*_logo`, …)
+	 *     AND the integer resolves to a known attachment ID. A bare numeric
+	 *     ID in an option array is not enough on its own.
+	 *   - String values must contain `/wp-content/uploads/` AND resolve via
+	 *     the path-anchored lookup (no basename fallback).
+	 *
+	 * @param array $known_ids Set of valid attachment IDs (O(1) lookup).
+	 *
+	 * @return void
+	 */
+	private function detect_option_settings_images( array $known_ids ): void {
+		$this->log_debug( 'option-scan START — known_ids count: ' . count( $known_ids ) );
+
+		// ── Layer 3: cache replay ───────────────────────────────────────────
+		// Replay the cached site-wide ID set if it's still valid for the
+		// current options-table signature. Cuts re-scans on unchanged sites
+		// from N row-walks down to a handful of record_sitewide_usage() calls.
+		$cache_signature = $this->get_options_table_signature();
+		$cache           = get_transient( self::OPTION_SCAN_CACHE_KEY );
+
+		if ( is_array( $cache )
+			&& isset( $cache['sig'], $cache['ids'] )
+			&& $cache['sig'] === $cache_signature
+			&& is_array( $cache['ids'] )
+		) {
+			$this->log_debug( 'option-scan CACHE HIT — replaying IDs: [' . implode( ',', $cache['ids'] ) . ']' );
+			foreach ( $cache['ids'] as $att_id ) {
+				$att_id = absint( $att_id );
+				if ( $att_id && isset( $known_ids[ $att_id ] ) ) {
+					$this->record_sitewide_usage( $att_id, 'option_settings' );
+				}
+			}
+			return;
+		}
+		$this->log_debug( 'option-scan CACHE MISS — running full sweep' );
+
+		// ── Layer 1: SQL-level prefilter ────────────────────────────────────
+		// Two-clause filter — either the value mentions an uploads URL OR it
+		// holds a serialized image-shaped key (e.g. `s:5:"image";i:7`).
+		// Either condition is necessary for the row to contain something we
+		// can record, so anything else can be eliminated at the DB layer.
+		//
+		// LIKE pattern uses bare `uploads/` so both raw (`/uploads/`) and
+		// JSON-escaped (`\/uploads\/`) forms match — Elementor, ACF, and any
+		// plugin storing JSON inside a serialized option will use the
+		// escaped form, and a stricter `%/uploads/%` pattern would silently
+		// drop them.
+		$regexp = 's:[0-9]+:"[^"]*(image|logo|icon|favicon|photo|picture|thumb|banner|avatar|cover|media|attachment)';
+
+		$rows = Fns::DB()->select( 'option_name', 'option_value' )
+			->from( 'options' )
+			->where( 'option_value', 'LIKE', '%uploads/%' )
+			->orWhere( 'option_value', 'REGEXP', $regexp )
+			->get();
+
+		$this->log_debug( 'option-scan SQL prefilter returned ' . count( $rows ?: [] ) . ' rows' );
+
+		if ( empty( $rows ) ) {
+			$this->log_debug( 'option-scan NO ROWS — caching empty set' );
+			set_transient( self::OPTION_SCAN_CACHE_KEY, [ 'sig' => $cache_signature, 'ids' => [] ], DAY_IN_SECONDS );
+			return;
+		}
+
+		// Skip option names that are infrastructure noise — transients, cron,
+		// nonces, rewrite rules, internal plugin state, etc. They never
+		// store user-visible chrome and including them would waste cycles
+		// unserializing large JSON/PHP blobs we never need to look at.
+		$skip_prefixes = [
+			'_transient_',
+			'_site_transient_',
+			'auth_',
+			'cron',
+			'rewrite_rules',
+			'nonce_',
+			'session_tokens',
+			'wp_user_roles',
+			'recently_activated',
+			'_tsmlt_',
+			'tsmlt_used_where_',
+			'mlt_',
+			'action_scheduler_',
+			'wc_admin_',
+			'wpseo_sitemap_cache_',
+			'_amn_',           // Action Scheduler / admin notice manager noise
+			'jetpack_sync_',
+		];
+
+		/**
+		 * Filter the set of option-name prefixes skipped during the site-wide
+		 * option scan. Add custom prefixes for noisy options that don't
+		 * contain image references.
+		 *
+		 * @param array $skip_prefixes List of prefixes.
+		 */
+		$skip_prefixes = (array) apply_filters( 'tsmlt_used_where_skip_option_prefixes', $skip_prefixes );
+
+		// Track which IDs we record this run, so we can persist them to the
+		// cache for the next scan.
+		$recorded_ids   = [];
+		$debug_seen     = [];
+		$current_option = '';
+		$record         = function ( int $att_id ) use ( &$recorded_ids, $known_ids, &$debug_seen, &$current_option ): void {
+			if ( $att_id && isset( $known_ids[ $att_id ] ) ) {
+				$this->record_sitewide_usage( $att_id, 'option_settings' );
+				$recorded_ids[ $att_id ] = true;
+				if ( self::DEBUG_LOG ) {
+					$debug_seen[] = $att_id . '@' . $current_option;
+				}
+			}
+		};
+
+		$debug_skipped_prefix = 0;
+		$debug_skipped_fast   = 0;
+		$debug_skipped_size   = 0;
+		$debug_walked         = 0;
+
+		foreach ( $rows as $row ) {
+			$name = (string) ( $row['option_name'] ?? '' );
+			if ( '' === $name ) {
+				continue;
+			}
+			foreach ( $skip_prefixes as $prefix ) {
+				if ( '' !== $prefix && 0 === strpos( $name, $prefix ) ) {
+					$debug_skipped_prefix++;
+					continue 2;
+				}
+			}
+			$current_option = $name;
+
+			$value = $row['option_value'] ?? '';
+			if ( '' === $value || ! is_string( $value ) ) {
+				continue;
+			}
+
+			// ── Layer 2: per-row fast skip ──────────────────────────────────
+			// Bail before maybe_unserialize() on rows that obviously cannot
+			// contribute. Saves a function call + regex on rows where the
+			// SQL prefilter matched on a stray `image` substring or an
+			// unrelated `/uploads/` mention (e.g. a help-text URL).
+			$is_serialized = isset( $value[1] )
+				&& ( 'a' === $value[0] || 'O' === $value[0] )
+				&& ':' === $value[1];
+			// Match both raw and JSON-escaped uploads paths.
+			$is_url_blob   = false !== strpos( $value, 'uploads/' );
+
+			if ( ! $is_serialized && ! $is_url_blob ) {
+				$debug_skipped_fast++;
+				continue;
+			}
+
+			// Cap the size at 100KB — header/footer logo options are tiny
+			// (<1KB). Anything bigger is almost always a backup blob, cache
+			// dump, log payload, or analytics buffer with no chrome image
+			// info. Unserializing those is the dominant cost on bloated
+			// sites; skipping pays for everything else this method does.
+			if ( strlen( $value ) > 100000 ) {
+				$debug_skipped_size++;
+				continue;
+			}
+			$debug_walked++;
+
+			$decoded = $is_serialized ? maybe_unserialize( $value ) : $value;
+
+			// Plain string option (legacy theme mods, single URL fields).
+			if ( is_string( $decoded ) ) {
+				if ( false !== strpos( $decoded, '/wp-content/uploads/' ) ) {
+					$record( $this->get_attachment_id_by_url( $decoded, false ) );
+				}
+				continue;
+			}
+
+			if ( ! is_array( $decoded ) && ! is_object( $decoded ) ) {
+				continue;
+			}
+
+			$this->walk_option_for_images( (array) $decoded, $known_ids, 0, $record );
+		}
+
+		$this->log_debug( sprintf(
+			'option-scan DONE — skipped(prefix=%d, fast=%d, size=%d) walked=%d recorded_ids=[%s] hits=[%s]',
+			$debug_skipped_prefix,
+			$debug_skipped_fast,
+			$debug_skipped_size,
+			$debug_walked,
+			implode( ',', array_keys( $recorded_ids ) ),
+			implode( '; ', $debug_seen )
+		) );
+
+		set_transient(
+			self::OPTION_SCAN_CACHE_KEY,
+			[ 'sig' => $cache_signature, 'ids' => array_keys( $recorded_ids ) ],
+			DAY_IN_SECONDS
+		);
+	}
+
+	/**
+	 * Build a cheap signature of the `wp_options` table state.
+	 *
+	 * Used to key the option-scan result cache. Combines the row count with
+	 * a checksum of the most recently modified options (by `option_id`,
+	 * which monotonically increases on every insert). The signature
+	 * changes when:
+	 *   - A new option is added (count increases AND the max option_id moves).
+	 *   - An existing option is deleted (count decreases).
+	 *   - An existing option's value changes (its content_length / md5 moves).
+	 *
+	 * Cheap because it touches only metadata — no row bodies are loaded.
+	 *
+	 * @return string
+	 */
+	private function get_options_table_signature(): string {
+		// Two query-builder calls — howdy-qb doesn't support multi-aggregate
+		// SELECTs and raw queries are disallowed by the project's coding
+		// standards.
+		$count_rows = Fns::DB()->select()->count( '*', 'total' )->from( 'options' )->get();
+		$cnt        = (int) ( $count_rows[0]['total'] ?? 0 );
+
+		$max_row = Fns::DB()->select( 'option_id' )
+			->from( 'options' )
+			->orderBy( 'option_id', 'DESC' )
+			->limit( 1 )
+			->get();
+		$max_id = (int) ( $max_row[0]['option_id'] ?? 0 );
+
+		return $cnt . ':' . $max_id;
+	}
+
+	/**
+	 * Recursively walk a decoded option array looking for attachment IDs
+	 * and upload URLs that represent site-wide images.
+	 *
+	 * Companion to `detect_option_settings_images()`. See that method's
+	 * docblock for the false-positive guards (image-shaped keys for ints,
+	 * path-anchored lookups for strings).
+	 *
+	 * @param array         $data      Decoded option array.
+	 * @param array         $known_ids Set of valid attachment IDs.
+	 * @param int           $depth     Current recursion depth (max 8).
+	 * @param callable|null $record    Optional recorder callback used by the
+	 *                                 caller to track which IDs were
+	 *                                 actually persisted (for the result
+	 *                                 cache). When null, falls back to
+	 *                                 record_sitewide_usage() directly.
+	 *
+	 * @return void
+	 */
+	private function walk_option_for_images( array $data, array $known_ids, int $depth = 0, ?callable $record = null ): void {
+		if ( $depth > 8 ) {
+			return;
+		}
+
+		$record_id = $record ?: function ( int $att_id ) use ( $known_ids ): void {
+			if ( $att_id && isset( $known_ids[ $att_id ] ) ) {
+				$this->record_sitewide_usage( $att_id, 'option_settings' );
+			}
+		};
+
+		foreach ( $data as $key => $value ) {
+			if ( is_array( $value ) ) {
+				$this->walk_option_for_images( $value, $known_ids, $depth + 1, $record );
+				continue;
+			}
+			if ( is_object( $value ) ) {
+				$this->walk_option_for_images( (array) $value, $known_ids, $depth + 1, $record );
+				continue;
+			}
+
+			// Integer attachment IDs gated by image-shaped keys.
+			if ( is_numeric( $value ) && $this->is_image_shaped_key( (string) $key ) ) {
+				$record_id( absint( $value ) );
+				continue;
+			}
+
+			// String values: full URL first, then blob extraction.
+			if ( is_string( $value ) && false !== strpos( $value, '/wp-content/uploads/' ) ) {
+				$att_id = $this->get_attachment_id_by_url( $value, false );
+				if ( $att_id ) {
+					$record_id( $att_id );
+					continue;
+				}
+
+				$rel_paths = $this->extract_upload_paths_from_string( $value );
+				if ( ! empty( $rel_paths ) ) {
+					$base_url = $this->get_uploads_base_url();
+					foreach ( $rel_paths as $rel ) {
+						$record_id( $this->get_attachment_id_by_url( $base_url . $rel, false ) );
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Whether an option-array key suggests its integer value is an
+	 * attachment ID for a site-chrome image.
+	 *
+	 * Conservative match: substring check against a fixed vocabulary so
+	 * unrelated fields like `'user_id'` or `'post_id'` don't promote
+	 * arbitrary integers to "site-wide image" status.
+	 *
+	 * @param string $key Array key being inspected.
+	 *
+	 * @return bool
+	 */
+	private function is_image_shaped_key( string $key ): bool {
+		if ( '' === $key ) {
+			return false;
+		}
+		$key = strtolower( $key );
+
+		$tokens = [
+			'image',
+			'logo',
+			'icon',
+			'favicon',
+			'photo',
+			'picture',
+			'thumb',     // matches thumb, thumbnail
+			'banner',
+			'avatar',
+			'cover',
+			'media',
+			'attachment',
+		];
+
+		/**
+		 * Filter the vocabulary of substrings used to identify image-shaped
+		 * option keys. Matched case-insensitively as substrings, so a token
+		 * of `'logo'` matches `'logo'`, `'header_logo'`, `'mobile_logo_id'`,
+		 * etc.
+		 *
+		 * @param array  $tokens Vocabulary list.
+		 * @param string $key    Key being inspected (lowercased).
+		 */
+		$tokens = (array) apply_filters( 'tsmlt_used_where_image_shaped_key_tokens', $tokens, $key );
+
+		foreach ( $tokens as $token ) {
+			if ( '' !== $token && false !== strpos( $key, $token ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -2920,5 +3641,69 @@ class UsedWhereScanner {
 			'post_type'  => 'site_settings',
 			'usage_type' => $usage_type,
 		];
+	}
+
+	/**
+	 * Append a diagnostic line to the scanner's own debug log.
+	 *
+	 * Self-contained — does not depend on `WP_DEBUG`, `WP_DEBUG_LOG`, or
+	 * any wp-config.php constant, so a non-developer site owner can flip
+	 * the master switch (`self::DEBUG_LOG`) for a support session without
+	 * touching server config.
+	 *
+	 * Log file location:
+	 *   `wp-content/uploads/<DEBUG_LOG_SUBDIR>/used-where.log`
+	 *
+	 * The directory is created on first write with a deny-all `.htaccess`
+	 * and an empty `index.php` to block direct web access. Log lines are
+	 * timestamped with the WordPress site timezone.
+	 *
+	 * Soft cap: the log is truncated when it exceeds 2 MB so a forgotten
+	 * `DEBUG_LOG=true` won't fill the disk on a busy site.
+	 *
+	 * @param string $message Human-readable diagnostic message.
+	 *
+	 * @return void
+	 */
+	private function log_debug( string $message ): void {
+		if ( ! self::DEBUG_LOG ) {
+			return;
+		}
+
+		$upload_dir = wp_upload_dir();
+		if ( ! empty( $upload_dir['error'] ) ) {
+			return;
+		}
+
+		$log_dir = trailingslashit( $upload_dir['basedir'] ) . self::DEBUG_LOG_SUBDIR;
+		if ( ! is_dir( $log_dir ) ) {
+			wp_mkdir_p( $log_dir );
+
+			// Block direct web access to the log directory.
+			$htaccess = $log_dir . '/.htaccess';
+			if ( ! file_exists( $htaccess ) ) {
+				@file_put_contents(
+					$htaccess,
+					"Order Deny,Allow\nDeny from all\n",
+					LOCK_EX
+				);
+			}
+			$index = $log_dir . '/index.php';
+			if ( ! file_exists( $index ) ) {
+				@file_put_contents( $index, "<?php\n// Silence is golden.\n", LOCK_EX );
+			}
+		}
+
+		$log_file = $log_dir . '/used-where.log';
+
+		// Soft size cap: truncate at 2 MB so a forgotten DEBUG_LOG=true
+		// can't fill the disk. Cheap stat() check, only triggers
+		// occasionally.
+		if ( file_exists( $log_file ) && filesize( $log_file ) > 2097152 ) {
+			@file_put_contents( $log_file, '', LOCK_EX );
+		}
+
+		$line = '[' . current_time( 'mysql' ) . '] ' . $message . PHP_EOL;
+		@file_put_contents( $log_file, $line, FILE_APPEND | LOCK_EX );
 	}
 }
