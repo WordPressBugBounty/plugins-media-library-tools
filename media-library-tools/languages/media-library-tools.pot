@@ -2,14 +2,14 @@
 # This file is distributed under the GPLv3.
 msgid ""
 msgstr ""
-"Project-Id-Version: Media Library Tools - AI-Powered Rename, Clean & CSV Import/Export 2.2.8\n"
+"Project-Id-Version: Media Library Tools - AI-Powered Rename, Clean & CSV Import/Export 2.2.9\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/media-library-tools\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-05-20T15:18:29+00:00\n"
+"POT-Creation-Date: 2026-06-06T20:44:14+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: media-library-tools\n"
@@ -171,132 +171,132 @@ msgstr ""
 msgid "PHP"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:189
+#: app/Controllers/Hooks/ActionHooks.php:203
 msgid "Uploaded To"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:197
+#: app/Controllers/Hooks/ActionHooks.php:211
 msgid "EXIF Data"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:204
+#: app/Controllers/Hooks/ActionHooks.php:218
 msgid "Remove EXIF"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:211
+#: app/Controllers/Hooks/ActionHooks.php:225
 msgid "Edit EXIF"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:233
+#: app/Controllers/Hooks/ActionHooks.php:247
 msgid "EXIF removal is only available for JPEG images."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:246
-#: app/Controllers/Hooks/ActionHooks.php:288
-#: app/Controllers/Hooks/ActionHooks.php:309
+#: app/Controllers/Hooks/ActionHooks.php:260
+#: app/Controllers/Hooks/ActionHooks.php:302
+#: app/Controllers/Hooks/ActionHooks.php:323
 msgid "Remove EXIF Data"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:249
+#: app/Controllers/Hooks/ActionHooks.php:263
 msgid "This will remove all metadata (camera info, GPS, dates, etc.) from the image while preserving visual quality."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:266
+#: app/Controllers/Hooks/ActionHooks.php:280
 msgid "Are you sure you want to remove EXIF metadata? This action cannot be undone."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:271
+#: app/Controllers/Hooks/ActionHooks.php:285
 msgid "Removing..."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:338
+#: app/Controllers/Hooks/ActionHooks.php:352
 msgid "EXIF editing is only available for JPEG images."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:346
+#: app/Controllers/Hooks/ActionHooks.php:360
 msgid "Pro Feature"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:347
+#: app/Controllers/Hooks/ActionHooks.php:361
 msgid "EXIF editing is available in the Pro version."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:356
+#: app/Controllers/Hooks/ActionHooks.php:370
 msgid "Edit EXIF Data"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:365
+#: app/Controllers/Hooks/ActionHooks.php:379
 msgid "Before"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:368
+#: app/Controllers/Hooks/ActionHooks.php:382
 msgid "After"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:385
+#: app/Controllers/Hooks/ActionHooks.php:399
 #: app/Controllers/Hooks/FilterHooks.php:392
 #: app/Modules/ExifData/ExifDataReader.php:500
 msgid "Camera"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:390
+#: app/Controllers/Hooks/ActionHooks.php:404
 #: app/Modules/ExifData/ExifDataReader.php:138
 #: app/Modules/ExifData/ExifDataReader.php:448
 msgid "Make"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:396
+#: app/Controllers/Hooks/ActionHooks.php:410
 #: app/Modules/ExifData/ExifDataReader.php:139
 #: app/Modules/ExifData/ExifDataReader.php:449
 msgid "Model"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:406
+#: app/Controllers/Hooks/ActionHooks.php:420
 #: app/Modules/ExifData/ExifDataReader.php:502
 msgid "Exposure"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:411
+#: app/Controllers/Hooks/ActionHooks.php:425
 #: app/Modules/ExifData/ExifDataReader.php:153
 #: app/Modules/ExifData/ExifDataReader.php:451
 msgid "ISO"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:417
+#: app/Controllers/Hooks/ActionHooks.php:431
 msgid "Aperture (f/)"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:424
+#: app/Controllers/Hooks/ActionHooks.php:438
 msgid "Shutter Speed"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:433
+#: app/Controllers/Hooks/ActionHooks.php:447
 msgid "Location"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:438
+#: app/Controllers/Hooks/ActionHooks.php:452
 msgid "Latitude (-90 to 90)"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:444
+#: app/Controllers/Hooks/ActionHooks.php:458
 msgid "Longitude (-180 to 180)"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:457
+#: app/Controllers/Hooks/ActionHooks.php:471
 msgid "Cancel"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:460
-#: app/Controllers/Hooks/ActionHooks.php:665
-#: app/Controllers/Hooks/ActionHooks.php:686
+#: app/Controllers/Hooks/ActionHooks.php:474
+#: app/Controllers/Hooks/ActionHooks.php:679
+#: app/Controllers/Hooks/ActionHooks.php:700
 msgid "Save EXIF"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:641
+#: app/Controllers/Hooks/ActionHooks.php:655
 msgid "Saving..."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:763
+#: app/Controllers/Hooks/ActionHooks.php:777
 msgid "View"
 msgstr ""
 

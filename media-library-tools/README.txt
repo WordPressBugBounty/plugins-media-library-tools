@@ -3,7 +3,7 @@ Contributors: tinysolution, mehediihasan
 Tags: rename, duplicate, cleaner, csv export import, alt text
 Requires at least: 5.5
 Tested up to: 7.0
-Stable tag: 2.2.8
+Stable tag: 2.2.9
 Requires PHP: 7.4
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
@@ -122,9 +122,11 @@ Most WordPress sites accumulate hundreds or thousands of media files over time �
 * Accessible from within the Rubbish Files page
 
 = CSV Export =
-* Export your full media library to a CSV file — IDs, slugs, URLs, titles, alt text, captions, descriptions, and custom meta fields
+* Export Selected media items form "media table" library to a CSV file — IDs, slugs, URLs, titles, alt text, captions, descriptions, and custom meta fields
 * Select which columns to include before exporting
-* Visual progress indicator during export
+
+[Documentation](https://www.wptinysolutions.com/docs/docs/media-library-tools/csv-export/#CSV-Export-Free-version)
+
 
 ---
 
@@ -449,6 +451,9 @@ Visit the [WordPress.org support forum](https://wordpress.org/support/plugin/med
 ---
 
 == Changelog ==
+
+= 2.2.9 (Jun 21, 2026)=
+* Improvement: Improvement Export Import UI
 
 = 2.2.8 ( May 21, 2026 )=
 * Optimize: Uses Images Detection Functionality makes More Optimize.
