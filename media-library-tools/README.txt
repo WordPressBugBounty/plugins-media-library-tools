@@ -3,7 +3,7 @@ Contributors: tinysolution, mehediihasan
 Tags: rename, duplicate, cleaner, csv export import, alt text
 Requires at least: 5.5
 Tested up to: 7.0
-Stable tag: 2.2.9
+Stable tag: 2.2.10
 Requires PHP: 7.4
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
@@ -440,17 +440,31 @@ Visit the [WordPress.org support forum](https://wordpress.org/support/plugin/med
 
 01. Media Table — view, filter, sort, and inline-edit all media files
 02. Media File Rename table with inline editing and AI suggestions
-03. Rubbish File notice and scan prompt
-04. Rubbish File table showing orphaned files with filter and action buttons
+03. Garbage File notice and scan prompt
+04. EXIF Data
 05. Directory list with scan history for targeted rubbish scanning
 06. Media Table in single-item edit mode
-07. Media Table in bulk edit mode
-08. Plugin settings page — AI, rename, alt text, image sizes, and more
-09. AI Content Generator showing multiple field suggestions
+07. Media Usage & Unused Finder
+08. Duplicate Files
+09. Regenerate Thumbnails
+10. Button For Download Media File
+11. Image Size Settings
+12. AI Suggestions — text
+13. CSV Export
+14. CSV Import
+15. Media Table Settings
+16. Ai Settings
 
 ---
 
 == Changelog ==
+
+= 2.2.10 (Jul 03, 2026)=
+* Added: Updated Google Gemini model options to the current 2.5 family (gemini-2.5-flash, gemini-2.5-flash-lite, gemini-2.5-pro).
+* Improvement: Retired Gemini models saved in existing settings are now automatically mapped to a supported 2.5 equivalent, preventing HTTP 404 errors during AI generation.
+* Improvement: Error notifications now include a manual close button, wrap long messages, and stay visible longer so they're easier to read and dismiss.
+* Fixed: Fatal "Division by zero" error when reading EXIF GPS data containing zero-denominator rationals (e.g. "0/0") in the attachment modal.
+* Fixed: SVG upload no longer crashes when the temporary file cannot be read; a clear error is shown instead.
 
 = 2.2.9 (Jun 21, 2026)=
 * Improvement: Improvement Export Import UI

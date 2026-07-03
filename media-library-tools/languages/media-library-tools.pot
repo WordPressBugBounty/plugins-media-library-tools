@@ -2,14 +2,14 @@
 # This file is distributed under the GPLv3.
 msgid ""
 msgstr ""
-"Project-Id-Version: Media Library Tools - AI-Powered Rename, Clean & CSV Import/Export 2.2.9\n"
+"Project-Id-Version: Media Library Tools - AI-Powered Rename, Clean & CSV Import/Export 2.2.10\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/media-library-tools\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-06-06T20:44:14+00:00\n"
+"POT-Creation-Date: 2026-07-03T12:45:54+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: media-library-tools\n"
@@ -80,7 +80,7 @@ msgstr ""
 
 #: app/Controllers/Admin/RegisterPostAndTax.php:45
 #: app/Controllers/Admin/RegisterPostAndTax.php:55
-#: app/Controllers/Hooks/FilterHooks.php:391
+#: app/Controllers/Hooks/FilterHooks.php:395
 msgid "Groups"
 msgstr ""
 
@@ -133,27 +133,27 @@ msgstr ""
 msgid "Invalid parameters."
 msgstr ""
 
-#: app/Controllers/AI/AiApi.php:204
+#: app/Controllers/AI/AiApi.php:217
 msgid "OpenAI API key is not configured."
 msgstr ""
 
-#: app/Controllers/AI/AiApi.php:252
+#: app/Controllers/AI/AiApi.php:265
 msgid "Empty response from OpenAI."
 msgstr ""
 
-#: app/Controllers/AI/AiApi.php:270
+#: app/Controllers/AI/AiApi.php:283
 msgid "Gemini API key is not configured."
 msgstr ""
 
-#: app/Controllers/AI/AiApi.php:314
+#: app/Controllers/AI/AiApi.php:327
 msgid "Empty response from Gemini."
 msgstr ""
 
-#: app/Controllers/AI/AiApi.php:332
+#: app/Controllers/AI/AiApi.php:345
 msgid "Claude API key is not configured."
 msgstr ""
 
-#: app/Controllers/AI/AiApi.php:381
+#: app/Controllers/AI/AiApi.php:394
 msgid "Empty response from Claude."
 msgstr ""
 
@@ -234,7 +234,7 @@ msgid "After"
 msgstr ""
 
 #: app/Controllers/Hooks/ActionHooks.php:399
-#: app/Controllers/Hooks/FilterHooks.php:392
+#: app/Controllers/Hooks/FilterHooks.php:396
 #: app/Modules/ExifData/ExifDataReader.php:500
 msgid "Camera"
 msgstr ""
@@ -339,138 +339,142 @@ msgstr ""
 msgid "The uploaded SVG exceeds the maximum allowed file size of %s."
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:232
+#: app/Controllers/Hooks/FilterHooks.php:230
+msgid "Unable to read the uploaded SVG file."
+msgstr ""
+
+#: app/Controllers/Hooks/FilterHooks.php:236
 msgid "This SVG file contains unsafe content and cannot be uploaded."
 msgstr ""
 
 #. translators: %s: Attachment title.
-#: app/Controllers/Hooks/FilterHooks.php:311
+#: app/Controllers/Hooks/FilterHooks.php:315
 #, php-format
 msgid "Move &#8220;%s&#8221; to the Trash"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:312
+#: app/Controllers/Hooks/FilterHooks.php:316
 msgctxt "verb"
 msgid "Trash"
 msgstr ""
 
 #. translators: %s: Attachment title.
-#: app/Controllers/Hooks/FilterHooks.php:320
+#: app/Controllers/Hooks/FilterHooks.php:324
 #, php-format
 msgid "Delete &#8220;%s&#8221; permanently"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:321
+#: app/Controllers/Hooks/FilterHooks.php:325
 msgid "Delete Permanently"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:388
+#: app/Controllers/Hooks/FilterHooks.php:392
 msgid "Alt"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:389
+#: app/Controllers/Hooks/FilterHooks.php:393
 msgid "Caption"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:390
+#: app/Controllers/Hooks/FilterHooks.php:394
 #: app/Modules/ExifData/ExifDataReader.php:170
 msgid "Description"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:393
+#: app/Controllers/Hooks/FilterHooks.php:397
 msgid "Dimensions"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:458
+#: app/Controllers/Hooks/FilterHooks.php:462
 msgid "Settings"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:460
+#: app/Controllers/Hooks/FilterHooks.php:464
 msgid "Go Pro"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:475
+#: app/Controllers/Hooks/FilterHooks.php:479
 msgid "Facing issue?"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:475
+#: app/Controllers/Hooks/FilterHooks.php:479
 msgid "Please open a support ticket."
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:333
+#: app/Controllers/Notice/Review.php:337
 msgid "Before you go…"
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:339
+#: app/Controllers/Notice/Review.php:343
 msgid "Wait — keeping the plugin active still helps."
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:341
+#: app/Controllers/Notice/Review.php:345
 msgid "If you keep this plugin active, it can continue helping your website with better SEO optimization and a cleaner, more organized media management experience."
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:347
+#: app/Controllers/Notice/Review.php:351
 msgid "If you still want to leave, a quick note about why helps us improve."
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:357
+#: app/Controllers/Notice/Review.php:361
 msgid "Missing feature"
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:365
+#: app/Controllers/Notice/Review.php:369
 msgid "Found a better plugin"
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:373
+#: app/Controllers/Notice/Review.php:377
 msgid "Temporary deactivation"
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:381
+#: app/Controllers/Notice/Review.php:385
 msgid "Performance issue"
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:389
+#: app/Controllers/Notice/Review.php:393
 #: app/Modules/ExifData/ExifDataReader.php:504
 msgid "Other"
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:395
+#: app/Controllers/Notice/Review.php:399
 msgid "Which plugin did you switch to?"
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:402
+#: app/Controllers/Notice/Review.php:406
 msgid "Why are you deactivating the plugin?"
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:405
+#: app/Controllers/Notice/Review.php:409
 msgid "A sentence or two is plenty — what made you decide to deactivate?"
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:410
+#: app/Controllers/Notice/Review.php:414
 msgid "Having trouble? Our support team is here to help."
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:411
+#: app/Controllers/Notice/Review.php:415
 msgid "Contact Support"
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:845
+#: app/Controllers/Notice/Review.php:849
 msgid "Keep Plugin Active"
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:846
+#: app/Controllers/Notice/Review.php:850
 msgid "Deactivate Anyway"
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:856
+#: app/Controllers/Notice/Review.php:860
 msgid "Please choose a reason before submitting."
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:862
+#: app/Controllers/Notice/Review.php:866
 msgid "Kindly share a few details so we can address this in a future update."
 msgstr ""
 
-#: app/Controllers/Notice/Review.php:872
+#: app/Controllers/Notice/Review.php:876
 msgid "Sending…"
 msgstr ""
 
