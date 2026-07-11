@@ -285,23 +285,24 @@ class UsedWhereScanner {
 	 * @return string[] Post type slugs.
 	 */
 	private function get_scannable_post_types(): array {
-		$types = get_post_types( [], 'names' );
+		// Only public post types hold user-authored, front-end-visible content
+		// that legitimately references uploads. Querying `public => true`
+		// excludes the large set of hidden WordPress / FSE / plugin plumbing
+		// CPTs — nav_menu_item, wp_block, wp_template(_part), wp_global_styles,
+		// wp_navigation, customize_changeset, custom_css, oembed_cache,
+		// user_request, etc. Counting those inflated the progress denominator
+		// (e.g. "117 posts" on a site with only a few real posts/pages) and
+		// wasted scan cycles on rows the per-post loop skips anyway.
+		$types = get_post_types( [ 'public' => true ], 'names' );
 
-		// `attachment` is the target of the scan, not the subject. The rest
-		// are WordPress / FSE plumbing CPTs that never legitimately reference
-		// uploads URLs in user-authored content — including them just inflates
-		// the progress denominator without adding signal.
-		unset(
-			$types['attachment'],
-			$types['revision'],
-			$types['wp_font_family'],
-			$types['wp_font_face']
-		);
+		// `attachment` is public but is the target of the scan, not a subject.
+		unset( $types['attachment'] );
 
 		// When WooCommerce HPOS is active, orders live in `wp_wc_orders` and
-		// are scanned via the dedicated HPOS pass. Skip the legacy post-table
-		// `shop_order*` CPTs to avoid double-scanning every order in HPOS sync
-		// mode (and to dodge orphan rows left by the HPOS migration).
+		// are scanned via the dedicated HPOS pass. Defensively unset the legacy
+		// post-table `shop_order*` CPTs in case a setup registers them as public
+		// — avoids double-scanning every order in HPOS sync mode (and dodges
+		// orphan rows left by the HPOS migration). Harmless no-op otherwise.
 		if ( $this->is_hpos_active() ) {
 			unset(
 				$types['shop_order'],
@@ -315,7 +316,9 @@ class UsedWhereScanner {
 		/**
 		 * Filter the post types scanned for image usage.
 		 *
-		 * Default includes every registered post type except `attachment`.
+		 * Default includes every public post type except `attachment`. Add a
+		 * private CPT here if it stores user-authored image references, or
+		 * remove a public one to skip it.
 		 *
 		 * @param string[] $types List of post type slugs.
 		 */
@@ -2971,23 +2974,40 @@ class UsedWhereScanner {
 		$this->log_debug( 'option-scan CACHE MISS — running full sweep' );
 
 		// ── Layer 1: SQL-level prefilter ────────────────────────────────────
-		// Two-clause filter — either the value mentions an uploads URL OR it
-		// holds a serialized image-shaped key (e.g. `s:5:"image";i:7`).
+		// OR-of-conditions filter — a row survives if it mentions an uploads
+		// URL OR it holds a serialized image-shaped key (e.g. `s:5:"image"`).
 		// Either condition is necessary for the row to contain something we
 		// can record, so anything else can be eliminated at the DB layer.
 		//
-		// LIKE pattern uses bare `uploads/` so both raw (`/uploads/`) and
+		// The uploads LIKE uses bare `uploads/` so both raw (`/uploads/`) and
 		// JSON-escaped (`\/uploads\/`) forms match — Elementor, ACF, and any
 		// plugin storing JSON inside a serialized option will use the
 		// escaped form, and a stricter `%/uploads/%` pattern would silently
 		// drop them.
-		$regexp = 's:[0-9]+:"[^"]*(image|logo|icon|favicon|photo|picture|thumb|banner|avatar|cover|media|attachment)';
+		//
+		// The image-key terms are matched with a set of plain LIKE clauses
+		// rather than a single `REGEXP`. MySQL 8's ICU regex engine enforces a
+		// per-row match-time budget (`regexp_time_limit`, ~32ms default), and
+		// the old `[^"]*` pattern backtracks catastrophically on large blobs
+		// (page-builder caches, log/analytics buffers) — a single such row
+		// aborts the whole query with "Timeout exceeded in regular expression
+		// match". LIKE has no time limit and is a strict superset here: the
+		// precise serialized-structure matching already happens later in
+		// walk_option_for_images(), so this layer only needs a cheap, safe
+		// over-match. Terms are wrapped in `"…"` to target serialized string
+		// values (`s:N:"image"`) and keep the filter from matching arbitrary
+		// substrings inside unrelated blobs.
+		$image_key_terms = [ 'image', 'logo', 'icon', 'favicon', 'photo', 'picture', 'thumb', 'banner', 'avatar', 'cover', 'media', 'attachment' ];
 
-		$rows = Fns::DB()->select( 'option_name', 'option_value' )
+		$query = Fns::DB()->select( 'option_name', 'option_value' )
 			->from( 'options' )
-			->where( 'option_value', 'LIKE', '%uploads/%' )
-			->orWhere( 'option_value', 'REGEXP', $regexp )
-			->get();
+			->where( 'option_value', 'LIKE', '%uploads/%' );
+
+		foreach ( $image_key_terms as $term ) {
+			$query->orWhere( 'option_value', 'LIKE', '%"' . $term . '"%' );
+		}
+
+		$rows = $query->get();
 
 		$this->log_debug( 'option-scan SQL prefilter returned ' . count( $rows ?: [] ) . ' rows' );
 

@@ -1,14 +1,14 @@
 === Media Library Tools - AI-Powered Rename, Clean & CSV Import/Export ===
 Contributors: tinysolution, mehediihasan
 Tags: rename, duplicate, cleaner, csv export import, alt text
-Requires at least: 5.5
+Requires at least: 6.5
 Tested up to: 7.0
-Stable tag: 2.2.10
+Stable tag: 2.2.11
 Requires PHP: 7.4
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
-AI-Powered Rename, bulk edit metadata, find duplicates, clean, CSV Import & Export, and track image usage.
+AI-powered bulk rename, bulk edit metadata, find duplicate images, clean up unused media, and more.
 
 == Description ==
 
@@ -459,22 +459,16 @@ Visit the [WordPress.org support forum](https://wordpress.org/support/plugin/med
 
 == Changelog ==
 
+= 2.2.11 (Jul 10, 2026)=
+* Improvement: Reordered Usage/Unused tabs (Used first).
+* Fixed: Usage/Unused scan no longer times out on large sites.
+
 = 2.2.10 (Jul 03, 2026)=
 * Added: Updated Google Gemini model options to the current 2.5 family (gemini-2.5-flash, gemini-2.5-flash-lite, gemini-2.5-pro).
 * Improvement: Retired Gemini models saved in existing settings are now automatically mapped to a supported 2.5 equivalent, preventing HTTP 404 errors during AI generation.
 * Improvement: Error notifications now include a manual close button, wrap long messages, and stay visible longer so they're easier to read and dismiss.
 * Fixed: Fatal "Division by zero" error when reading EXIF GPS data containing zero-denominator rationals (e.g. "0/0") in the attachment modal.
 * Fixed: SVG upload no longer crashes when the temporary file cannot be read; a clear error is shown instead.
-
-= 2.2.9 (Jun 21, 2026)=
-* Improvement: Improvement Export Import UI
-
-= 2.2.8 ( May 21, 2026 )=
-* Optimize: Uses Images Detection Functionality makes More Optimize.
-
-= 2.2.7 ( May 20, 2026 )=
-* Added: Option For Delete Plugin Data on Uninstall
-* Fixed: Settings Pages Images Count as uses currently.
 
 [See changelog for all versions.](https://raw.githubusercontent.com/wptinysolution/WP-Changelog/refs/heads/main/media-library-tools.txt)
 

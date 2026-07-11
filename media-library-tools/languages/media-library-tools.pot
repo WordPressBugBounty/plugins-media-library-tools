@@ -2,14 +2,14 @@
 # This file is distributed under the GPLv3.
 msgid ""
 msgstr ""
-"Project-Id-Version: Media Library Tools - AI-Powered Rename, Clean & CSV Import/Export 2.2.10\n"
+"Project-Id-Version: Media Library Tools - AI-Powered Rename, Clean & CSV Import/Export 2.2.11\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/media-library-tools\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-07-03T12:45:54+00:00\n"
+"POT-Creation-Date: 2026-07-11T18:28:09+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: media-library-tools\n"
@@ -80,7 +80,7 @@ msgstr ""
 
 #: app/Controllers/Admin/RegisterPostAndTax.php:45
 #: app/Controllers/Admin/RegisterPostAndTax.php:55
-#: app/Controllers/Hooks/FilterHooks.php:395
+#: app/Controllers/Hooks/FilterHooks.php:409
 msgid "Groups"
 msgstr ""
 
@@ -171,132 +171,132 @@ msgstr ""
 msgid "PHP"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:203
+#: app/Controllers/Hooks/ActionHooks.php:219
 msgid "Uploaded To"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:211
+#: app/Controllers/Hooks/ActionHooks.php:227
 msgid "EXIF Data"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:218
+#: app/Controllers/Hooks/ActionHooks.php:234
 msgid "Remove EXIF"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:225
+#: app/Controllers/Hooks/ActionHooks.php:241
 msgid "Edit EXIF"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:247
+#: app/Controllers/Hooks/ActionHooks.php:263
 msgid "EXIF removal is only available for JPEG images."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:260
-#: app/Controllers/Hooks/ActionHooks.php:302
-#: app/Controllers/Hooks/ActionHooks.php:323
+#: app/Controllers/Hooks/ActionHooks.php:276
+#: app/Controllers/Hooks/ActionHooks.php:318
+#: app/Controllers/Hooks/ActionHooks.php:339
 msgid "Remove EXIF Data"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:263
+#: app/Controllers/Hooks/ActionHooks.php:279
 msgid "This will remove all metadata (camera info, GPS, dates, etc.) from the image while preserving visual quality."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:280
+#: app/Controllers/Hooks/ActionHooks.php:296
 msgid "Are you sure you want to remove EXIF metadata? This action cannot be undone."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:285
+#: app/Controllers/Hooks/ActionHooks.php:301
 msgid "Removing..."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:352
+#: app/Controllers/Hooks/ActionHooks.php:368
 msgid "EXIF editing is only available for JPEG images."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:360
+#: app/Controllers/Hooks/ActionHooks.php:376
 msgid "Pro Feature"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:361
+#: app/Controllers/Hooks/ActionHooks.php:377
 msgid "EXIF editing is available in the Pro version."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:370
+#: app/Controllers/Hooks/ActionHooks.php:386
 msgid "Edit EXIF Data"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:379
+#: app/Controllers/Hooks/ActionHooks.php:395
 msgid "Before"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:382
+#: app/Controllers/Hooks/ActionHooks.php:398
 msgid "After"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:399
-#: app/Controllers/Hooks/FilterHooks.php:396
+#: app/Controllers/Hooks/ActionHooks.php:415
+#: app/Controllers/Hooks/FilterHooks.php:410
 #: app/Modules/ExifData/ExifDataReader.php:500
 msgid "Camera"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:404
+#: app/Controllers/Hooks/ActionHooks.php:420
 #: app/Modules/ExifData/ExifDataReader.php:138
 #: app/Modules/ExifData/ExifDataReader.php:448
 msgid "Make"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:410
+#: app/Controllers/Hooks/ActionHooks.php:426
 #: app/Modules/ExifData/ExifDataReader.php:139
 #: app/Modules/ExifData/ExifDataReader.php:449
 msgid "Model"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:420
+#: app/Controllers/Hooks/ActionHooks.php:436
 #: app/Modules/ExifData/ExifDataReader.php:502
 msgid "Exposure"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:425
+#: app/Controllers/Hooks/ActionHooks.php:441
 #: app/Modules/ExifData/ExifDataReader.php:153
 #: app/Modules/ExifData/ExifDataReader.php:451
 msgid "ISO"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:431
+#: app/Controllers/Hooks/ActionHooks.php:447
 msgid "Aperture (f/)"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:438
+#: app/Controllers/Hooks/ActionHooks.php:454
 msgid "Shutter Speed"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:447
+#: app/Controllers/Hooks/ActionHooks.php:463
 msgid "Location"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:452
+#: app/Controllers/Hooks/ActionHooks.php:468
 msgid "Latitude (-90 to 90)"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:458
+#: app/Controllers/Hooks/ActionHooks.php:474
 msgid "Longitude (-180 to 180)"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:471
+#: app/Controllers/Hooks/ActionHooks.php:487
 msgid "Cancel"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:474
-#: app/Controllers/Hooks/ActionHooks.php:679
-#: app/Controllers/Hooks/ActionHooks.php:700
+#: app/Controllers/Hooks/ActionHooks.php:490
+#: app/Controllers/Hooks/ActionHooks.php:695
+#: app/Controllers/Hooks/ActionHooks.php:716
 msgid "Save EXIF"
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:655
+#: app/Controllers/Hooks/ActionHooks.php:671
 msgid "Saving..."
 msgstr ""
 
-#: app/Controllers/Hooks/ActionHooks.php:777
+#: app/Controllers/Hooks/ActionHooks.php:793
 msgid "View"
 msgstr ""
 
@@ -334,70 +334,70 @@ msgid "Missing attachment_id."
 msgstr ""
 
 #. translators: file size
-#: app/Controllers/Hooks/FilterHooks.php:217
+#: app/Controllers/Hooks/FilterHooks.php:231
 #, php-format
 msgid "The uploaded SVG exceeds the maximum allowed file size of %s."
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:230
+#: app/Controllers/Hooks/FilterHooks.php:244
 msgid "Unable to read the uploaded SVG file."
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:236
+#: app/Controllers/Hooks/FilterHooks.php:250
 msgid "This SVG file contains unsafe content and cannot be uploaded."
 msgstr ""
 
 #. translators: %s: Attachment title.
-#: app/Controllers/Hooks/FilterHooks.php:315
+#: app/Controllers/Hooks/FilterHooks.php:329
 #, php-format
 msgid "Move &#8220;%s&#8221; to the Trash"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:316
+#: app/Controllers/Hooks/FilterHooks.php:330
 msgctxt "verb"
 msgid "Trash"
 msgstr ""
 
 #. translators: %s: Attachment title.
-#: app/Controllers/Hooks/FilterHooks.php:324
+#: app/Controllers/Hooks/FilterHooks.php:338
 #, php-format
 msgid "Delete &#8220;%s&#8221; permanently"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:325
+#: app/Controllers/Hooks/FilterHooks.php:339
 msgid "Delete Permanently"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:392
+#: app/Controllers/Hooks/FilterHooks.php:406
 msgid "Alt"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:393
+#: app/Controllers/Hooks/FilterHooks.php:407
 msgid "Caption"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:394
+#: app/Controllers/Hooks/FilterHooks.php:408
 #: app/Modules/ExifData/ExifDataReader.php:170
 msgid "Description"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:397
+#: app/Controllers/Hooks/FilterHooks.php:411
 msgid "Dimensions"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:462
+#: app/Controllers/Hooks/FilterHooks.php:476
 msgid "Settings"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:464
+#: app/Controllers/Hooks/FilterHooks.php:478
 msgid "Go Pro"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:479
+#: app/Controllers/Hooks/FilterHooks.php:493
 msgid "Facing issue?"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:479
+#: app/Controllers/Hooks/FilterHooks.php:493
 msgid "Please open a support ticket."
 msgstr ""
 
@@ -741,18 +741,18 @@ msgid "Could not delete directory. Check file permissions."
 msgstr ""
 
 #. translators: %d: order number
-#: app/Modules/UsedWhere/UsedWhereScanner.php:424
+#: app/Modules/UsedWhere/UsedWhereScanner.php:427
 #, php-format
 msgid "Order #%d"
 msgstr ""
 
-#: app/Modules/UsedWhere/UsedWhereScanner.php:2362
+#: app/Modules/UsedWhere/UsedWhereScanner.php:2365
 msgid "Scan cleared successfully."
 msgstr ""
 
-#: app/Modules/UsedWhere/UsedWhereScanner.php:2481
-#: app/Modules/UsedWhere/UsedWhereScanner.php:2610
-#: app/Modules/UsedWhere/UsedWhereScanner.php:3640
+#: app/Modules/UsedWhere/UsedWhereScanner.php:2484
+#: app/Modules/UsedWhere/UsedWhereScanner.php:2613
+#: app/Modules/UsedWhere/UsedWhereScanner.php:3660
 msgid "Site Settings"
 msgstr ""
 
