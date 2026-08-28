@@ -411,6 +411,11 @@ class Api {
 					'permalink' => $parent_permalink,
 					'sku'       => esc_attr( $parent_sku ),
 				],
+				// Raw native attachment fields, exposed for CSV export/import round-tripping.
+				'post_parent'    => absint( $post->post_parent ),
+				// Not absint(): WordPress permits a negative menu_order, and the CSV
+				// importer accepts one, so exporting it unsigned would break the round-trip.
+				'menu_order'     => (int) $post->menu_order,
 				'caption'        => esc_attr( $post->post_excerpt ),
 				'description'    => esc_attr( $post->post_content ),
 				'slug'           => esc_attr( $post->post_name ),
@@ -531,10 +536,29 @@ class Api {
 					}
 					$updated = true;
 				}
-				// Categories.
+				// Groups (tsmlt_category taxonomy).
+				$categories = array_filter( array_map( 'absint', $categories ) );
 				if ( ! empty( $categories ) ) {
+					/**
+					 * Assignment mode:
+					 * - 'add'     : append to the groups the item already has (default).
+					 * - 'replace' : overwrite every existing group with the selection.
+					 * - 'remove'  : detach the selected groups, leave the rest untouched.
+					 */
+					$group_mode = isset( $parameters['post_categories_mode'] )
+						? sanitize_key( $parameters['post_categories_mode'] )
+						: 'add';
+					if ( ! in_array( $group_mode, [ 'add', 'replace', 'remove' ], true ) ) {
+						$group_mode = 'add';
+					}
 					foreach ( $ids as $id ) {
-						wp_set_object_terms( $id, $categories, Fns::CATEGORY );
+						if ( 'remove' === $group_mode ) {
+							wp_remove_object_terms( $id, $categories, Fns::CATEGORY );
+						} else {
+							// Append unless the user explicitly asked to replace, so a bulk
+							// "add to group" never silently strips an item's other groups.
+							wp_set_object_terms( $id, $categories, Fns::CATEGORY, 'add' === $group_mode );
+						}
 					}
 					$updated = true;
 				}
