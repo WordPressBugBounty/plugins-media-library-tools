@@ -544,6 +544,27 @@ class Fns {
 	}
 
 	/**
+	 * Prepare a stored text value for a JSON response.
+	 *
+	 * These values are consumed by React, which escapes everything it renders,
+	 * so HTML-escaping here would show up as literal entities in the UI — a
+	 * title of "Usage & Unused" rendering as "Usage &amp; Unused". WordPress
+	 * also stores some punctuation pre-encoded (`&#038;`), so entities are
+	 * decoded to their plain characters first.
+	 *
+	 * @param mixed $value Stored value.
+	 *
+	 * @return string
+	 */
+	public static function prepare_text_for_json( $value ): string {
+		if ( ! is_scalar( $value ) ) {
+			return '';
+		}
+
+		return html_entity_decode( (string) $value, ENT_QUOTES, 'UTF-8' );
+	}
+
+	/**
 	 * @return false|string
 	 */
 	public static function get_options() {
@@ -560,6 +581,23 @@ class Fns {
 			'media_auto_rename_text' => '',
 			'media_rename_prefix'    => '',
 			'media_rename_suffix'    => '',
+			// Compression defaults — Pro-only keys default off so an install
+			// without a licence never has backup or auto-compression active.
+			'compression_mode'               => 'balanced',
+			'compression_quality'            => 0,
+			'compression_use_custom_quality' => 0,
+			'compression_backup_originals'   => 0,
+			'compression_generated_sizes'    => 0,
+			'compression_auto_on_upload'     => 0,
+			// Conversion defaults — WebP on, AVIF and the Pro-only options off.
+			'conversion_webp_enabled'        => 1,
+			'conversion_avif_enabled'        => 0,
+			'conversion_webp_quality'        => 82,
+			'conversion_avif_quality'        => 70,
+			'conversion_use_custom_quality'  => 0,
+			'conversion_generated_sizes'     => 0,
+			'conversion_auto_on_upload'      => 0,
+			'conversion_serve_modern'        => 0,
 
 		];
 		$options                   = get_option( 'tsmlt_settings', [] );

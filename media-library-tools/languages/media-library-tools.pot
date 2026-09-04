@@ -2,14 +2,14 @@
 # This file is distributed under the GPLv3.
 msgid ""
 msgstr ""
-"Project-Id-Version: Media Library Tools - AI-Powered Rename, Clean & CSV Import/Export 2.2.15\n"
+"Project-Id-Version: Media Library Tools - AI-Powered Rename, Clean & CSV Import/Export 2.3.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/media-library-tools\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-28T06:58:00+00:00\n"
+"POT-Creation-Date: 2026-09-04T18:01:42+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: media-library-tools\n"
@@ -43,12 +43,12 @@ msgstr ""
 msgid "Dismiss"
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:144
+#: app/Controllers/Admin/Api.php:154
 msgid "Settings saved."
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:455
-#: app/Controllers/Admin/Api.php:568
+#: app/Controllers/Admin/Api.php:465
+#: app/Controllers/Admin/Api.php:578
 #: app/Modules/Rename/RenameModule.php:43
 #: app/Modules/Rename/RenameModule.php:152
 #: app/Modules/Rubbish/RubbishScanner.php:191
@@ -56,25 +56,25 @@ msgstr ""
 msgid "Update failed. Please try to fix"
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:471
-#: app/Controllers/Admin/Api.php:567
+#: app/Controllers/Admin/Api.php:481
+#: app/Controllers/Admin/Api.php:577
 msgid "Updated. Be happy."
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:486
+#: app/Controllers/Admin/Api.php:496
 msgid "Done. Be happy."
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:500
+#: app/Controllers/Admin/Api.php:510
 msgid "Deleted. Be happy."
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:501
+#: app/Controllers/Admin/Api.php:511
 msgid "Deleted failed. Please try to fix"
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:580
 #: app/Controllers/Admin/Api.php:590
+#: app/Controllers/Admin/Api.php:600
 msgid "This feature requires the Pro plugin."
 msgstr ""
 
@@ -300,36 +300,36 @@ msgstr ""
 msgid "View"
 msgstr ""
 
-#: app/Controllers/Hooks/Ajax.php:146
-#: app/Controllers/Hooks/Ajax.php:203
-#: app/Controllers/Hooks/Ajax.php:228
+#: app/Controllers/Hooks/Ajax.php:176
+#: app/Controllers/Hooks/Ajax.php:233
+#: app/Controllers/Hooks/Ajax.php:258
 msgid "Invalid request."
 msgstr ""
 
-#: app/Controllers/Hooks/Ajax.php:151
-#: app/Controllers/Hooks/Ajax.php:207
+#: app/Controllers/Hooks/Ajax.php:181
+#: app/Controllers/Hooks/Ajax.php:237
 msgid "Method not allowed."
 msgstr ""
 
-#: app/Controllers/Hooks/Ajax.php:159
-#: app/Controllers/Hooks/Ajax.php:211
-#: app/Controllers/Hooks/Ajax.php:234
+#: app/Controllers/Hooks/Ajax.php:189
+#: app/Controllers/Hooks/Ajax.php:241
+#: app/Controllers/Hooks/Ajax.php:264
 msgid "Unauthorized."
 msgstr ""
 
-#: app/Controllers/Hooks/Ajax.php:168
+#: app/Controllers/Hooks/Ajax.php:198
 msgid "Malformed request payload."
 msgstr ""
 
-#: app/Controllers/Hooks/Ajax.php:710
-#: app/Controllers/Hooks/Ajax.php:729
-#: app/Controllers/Hooks/Ajax.php:748
+#: app/Controllers/Hooks/Ajax.php:740
+#: app/Controllers/Hooks/Ajax.php:759
+#: app/Controllers/Hooks/Ajax.php:778
 msgid "No IDs provided."
 msgstr ""
 
-#: app/Controllers/Hooks/Ajax.php:865
-#: app/Controllers/Hooks/Ajax.php:944
-#: app/Controllers/Hooks/Ajax.php:957
+#: app/Controllers/Hooks/Ajax.php:895
+#: app/Controllers/Hooks/Ajax.php:974
+#: app/Controllers/Hooks/Ajax.php:987
 msgid "Missing attachment_id."
 msgstr ""
 
@@ -476,6 +476,346 @@ msgstr ""
 
 #: app/Controllers/Notice/Review.php:876
 msgid "Sending…"
+msgstr ""
+
+#: app/Modules/Compress/AttachmentProcessor.php:65
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:64
+msgid "You do not have permission to edit this image."
+msgstr ""
+
+#: app/Modules/Compress/AttachmentProcessor.php:88
+#: app/Modules/Compress/AttachmentProcessor.php:97
+#: app/Modules/Compress/CompressModule.php:280
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:82
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:91
+#: app/Modules/Compress/Conversion/ConvertModule.php:270
+msgid "Image not found."
+msgstr ""
+
+#: app/Modules/Compress/AttachmentProcessor.php:106
+msgid "This file type cannot be compressed. Supported types are JPEG, PNG and WebP."
+msgstr ""
+
+#: app/Modules/Compress/AttachmentProcessor.php:115
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:109
+msgid "The image file is missing on the server."
+msgstr ""
+
+#: app/Modules/Compress/AttachmentProcessor.php:148
+msgid "This image is already being compressed."
+msgstr ""
+
+#: app/Modules/Compress/AttachmentProcessor.php:396
+msgid "The compressed image could not replace the original."
+msgstr ""
+
+#: app/Modules/Compress/BackupManager.php:60
+#: app/Modules/Compress/BackupManager.php:113
+msgid "The WordPress uploads directory is not available."
+msgstr ""
+
+#: app/Modules/Compress/BackupManager.php:69
+#: app/Modules/Compress/BackupManager.php:193
+msgid "The backup directory could not be created."
+msgstr ""
+
+#: app/Modules/Compress/BackupManager.php:123
+msgid "This image is stored outside the uploads directory and cannot be backed up."
+msgstr ""
+
+#: app/Modules/Compress/BackupManager.php:149
+msgid "Invalid file path."
+msgstr ""
+
+#: app/Modules/Compress/BackupManager.php:171
+msgid "The file to back up no longer exists."
+msgstr ""
+
+#: app/Modules/Compress/BackupManager.php:200
+msgid "The original image could not be backed up."
+msgstr ""
+
+#: app/Modules/Compress/BackupManager.php:211
+msgid "The backup copy was incomplete and has been discarded."
+msgstr ""
+
+#: app/Modules/Compress/CompressionJob.php:233
+#: app/Modules/Compress/CompressModule.php:219
+msgid "No image compression library (ImageMagick or GD) is available on this server."
+msgstr ""
+
+#: app/Modules/Compress/CompressionJob.php:242
+msgid "A compression job is already running. Wait for it to finish or cancel it first."
+msgstr ""
+
+#: app/Modules/Compress/CompressionJob.php:251
+msgid "None of the selected items are images that can be compressed."
+msgstr ""
+
+#: app/Modules/Compress/CompressionJob.php:307
+msgid "This server cannot produce WebP or AVIF images. Ask your host to enable ImageMagick or GD with WebP support."
+msgstr ""
+
+#: app/Modules/Compress/CompressionJob.php:316
+msgid "A job is already running. Wait for it to finish or cancel it first."
+msgstr ""
+
+#: app/Modules/Compress/CompressionJob.php:325
+#: app/Modules/Compress/Conversion/ConvertModule.php:242
+msgid "Select at least one output format that this server and your licence support."
+msgstr ""
+
+#: app/Modules/Compress/CompressionJob.php:334
+msgid "None of the selected items are images that can be converted."
+msgstr ""
+
+#: app/Modules/Compress/CompressionJob.php:513
+msgid "There are no supported images to compress."
+msgstr ""
+
+#: app/Modules/Compress/CompressionJob.php:514
+msgid "Every supported image has already been compressed."
+msgstr ""
+
+#: app/Modules/Compress/CompressionJob.php:591
+msgid "A compression job is already running."
+msgstr ""
+
+#: app/Modules/Compress/CompressionJob.php:598
+msgid "There are no failed images to retry."
+msgstr ""
+
+#: app/Modules/Compress/CompressionManager.php:147
+msgid "ImageMagick"
+msgstr ""
+
+#: app/Modules/Compress/CompressionManager.php:148
+msgid "GD"
+msgstr ""
+
+#: app/Modules/Compress/CompressionManager.php:194
+msgid "This file type cannot be compressed."
+msgstr ""
+
+#: app/Modules/Compress/CompressionManager.php:201
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:415
+msgid "The image file is missing or unreadable on the server."
+msgstr ""
+
+#: app/Modules/Compress/CompressionManager.php:208
+msgid "The image file is not writable. Check file permissions."
+msgstr ""
+
+#: app/Modules/Compress/CompressionManager.php:216
+msgid "The image file is empty."
+msgstr ""
+
+#: app/Modules/Compress/CompressionManager.php:224
+msgid "No image compression library is available on this server."
+msgstr ""
+
+#: app/Modules/Compress/CompressionManager.php:291
+msgid "The upload directory is not writable, so a temporary file could not be created."
+msgstr ""
+
+#: app/Modules/Compress/CompressionManager.php:300
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:444
+#: app/Modules/Compress/RestoreManager.php:199
+msgid "A temporary file could not be created."
+msgstr ""
+
+#: app/Modules/Compress/CompressionManager.php:335
+msgid "The compressed file was not created."
+msgstr ""
+
+#: app/Modules/Compress/CompressionManager.php:343
+msgid "The compressed file is empty."
+msgstr ""
+
+#: app/Modules/Compress/CompressionManager.php:352
+msgid "The compressed file is not a valid image."
+msgstr ""
+
+#: app/Modules/Compress/CompressionManager.php:363
+msgid "The compressed file does not match the original image format."
+msgstr ""
+
+#: app/Modules/Compress/CompressionSettings.php:76
+msgid "High Quality"
+msgstr ""
+
+#: app/Modules/Compress/CompressionSettings.php:77
+msgid "Smallest visual change. Modest file size savings."
+msgstr ""
+
+#: app/Modules/Compress/CompressionSettings.php:81
+msgid "Balanced"
+msgstr ""
+
+#: app/Modules/Compress/CompressionSettings.php:82
+msgid "Recommended. Good savings with no visible quality loss on most images."
+msgstr ""
+
+#: app/Modules/Compress/CompressionSettings.php:86
+msgid "Maximum Compression"
+msgstr ""
+
+#: app/Modules/Compress/CompressionSettings.php:87
+msgid "Largest savings. Quality loss may be visible on detailed images."
+msgstr ""
+
+#: app/Modules/Compress/CompressModule.php:101
+msgid "Compression settings saved."
+msgstr ""
+
+#: app/Modules/Compress/CompressModule.php:119
+msgid "Select at least one image to compress."
+msgstr ""
+
+#: app/Modules/Compress/CompressModule.php:287
+#: app/Modules/Compress/Conversion/ConvertModule.php:277
+msgid "You do not have permission to view this image."
+msgstr ""
+
+#: app/Modules/Compress/Compressors/GDCompressor.php:135
+#: app/Modules/Compress/Compressors/ImagickCompressor.php:163
+msgid "The compression engine could not write the output file."
+msgstr ""
+
+#: app/Modules/Compress/Compressors/GDCompressor.php:169
+#: app/Modules/Compress/Conversion/Converters/GDConverter.php:214
+msgid "The image could not be read. It may be corrupt or in an unsupported format."
+msgstr ""
+
+#: app/Modules/Compress/Compressors/ImagickCompressor.php:151
+msgid "This image type is not supported by the compression engine."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:100
+msgid "This file type cannot be converted. Supported types are JPEG, PNG and WebP."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:140
+msgid "Select at least one output format."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:147
+msgid "This image is already being converted."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:238
+msgid "The image could not be converted."
+msgstr ""
+
+#. translators: %s: image format name, e.g. WebP
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:275
+#, php-format
+msgid "This server cannot produce %s images."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:424
+msgid "The upload directory is not writable."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:433
+msgid "The source file is not a valid image."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:470
+msgid "The converted image could not be saved."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:493
+msgid "The converted file was not created."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:502
+msgid "The converted file is empty."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:516
+msgid "The converted file is not a valid image."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:525
+msgid "The converted file is not in the expected format."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/AttachmentConverter.php:532
+msgid "The converted image does not match the original dimensions."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/ConversionManager.php:58
+msgid "Unknown image format."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/ConversionManager.php:68
+msgid "This image has no converted files."
+msgstr ""
+
+#. translators: %d: number of deleted files
+#: app/Modules/Compress/Conversion/ConversionManager.php:113
+#, php-format
+msgid "%d converted file deleted."
+msgid_plural "%d converted files deleted."
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/Modules/Compress/Conversion/Converters/GDConverter.php:124
+msgid "This image type cannot be converted."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/Converters/GDConverter.php:161
+#: app/Modules/Compress/Conversion/Converters/ImagickConverter.php:156
+msgid "The converted image could not be written."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/Converters/ImagickConverter.php:146
+msgid "This output format is not supported."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/ConvertModule.php:91
+msgid "Conversion settings saved."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/ConvertModule.php:109
+msgid "Select at least one image to convert."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/ConvertModule.php:210
+msgid "There are no images to convert."
+msgstr ""
+
+#: app/Modules/Compress/Conversion/ConvertModule.php:211
+msgid "Every supported image has already been converted."
+msgstr ""
+
+#: app/Modules/Compress/RestoreManager.php:56
+msgid "Restoring original images is a Pro feature."
+msgstr ""
+
+#: app/Modules/Compress/RestoreManager.php:80
+msgid "No backup is available for this image."
+msgstr ""
+
+#: app/Modules/Compress/RestoreManager.php:146
+msgid "Original image restored."
+msgstr ""
+
+#: app/Modules/Compress/RestoreManager.php:174
+msgid "The backup file is missing."
+msgstr ""
+
+#: app/Modules/Compress/RestoreManager.php:190
+msgid "The original image location is not writable."
+msgstr ""
+
+#: app/Modules/Compress/RestoreManager.php:208
+msgid "The backup could not be read."
+msgstr ""
+
+#: app/Modules/Compress/RestoreManager.php:228
+msgid "The original image could not be put back in place."
 msgstr ""
 
 #: app/Modules/Duplicate/DuplicateScanner.php:388

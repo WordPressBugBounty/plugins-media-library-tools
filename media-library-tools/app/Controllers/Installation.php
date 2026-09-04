@@ -142,6 +142,11 @@ class Installation {
 			'_tsmlt_exif_gps_lng',
 			'_tsmlt_exif_logs',
 			'_tsmlt_exif_meta',
+			'_tsmlt_compression_data',
+			'_tsmlt_compression_lock',
+			'_tsmlt_compression_run',
+			'_tsmlt_image_conversion_data',
+			'_tsmlt_conversion_lock',
 		];
 		foreach ( $meta_keys as $meta_key ) {
 			delete_post_meta_by_key( $meta_key );
@@ -158,6 +163,7 @@ class Installation {
 			'tsmlt_exif_scan_status',
 			'tsmlt_exif_strip_status',
 			'tsmlt_thumbnail_cron_offset',
+			'tsmlt_compression_job',
 			'tsmlt_spare_me',
 			'tsmlt_rated',
 			'tsmlt_remind_me',
