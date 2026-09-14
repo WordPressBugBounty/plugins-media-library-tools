@@ -3,7 +3,7 @@ Contributors: tinysolution, mehediihasan
 Tags: rename, duplicate, compress images, csv export import, alt text
 Requires at least: 6.5
 Tested up to: 7.1
-Stable tag: 2.3.0
+Stable tag: 2.4.0
 Requires PHP: 7.4
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
@@ -18,7 +18,7 @@ Whether you run a blog, WooCommerce store, or content-heavy site, Media Library 
 
 👉 [Documentation](https://wptinysolutions.com/docs/docs-category/media-library-tools/) | [Get Pro](https://www.wptinysolutions.com/tiny-products/media-library-tools/) 👈
 
-[youtube https://www.youtube.com/watch?v=L7F33DYnsZU]
+[youtube https://www.youtube.com/watch?v=mpkeZ1-_AFU]
 
 ---
 
@@ -533,6 +533,16 @@ Visit the [WordPress.org support forum](https://wordpress.org/support/plugin/med
 ---
 
 == Changelog ==
+= 2.4.0 (Sep 15, 2026)=
+* Feature: Bulk AI Generate — select media and generate Title, Alt Text, Caption and Description for all of them. Pro only.
+* Feature: Suggest Filename with AI in the Rename table. Files are never renamed until you apply a suggestion. Pro only.
+* Improvement: Bulk generation asks the AI for all selected fields in one request, cutting API calls by up to 75%.
+
+= 2.3.1 (Sep 05, 2026)=
+* Feature: AI Content Language — generate metadata in your site language instead of English.
+* Feature: Custom Instructions — add your own wording per AI field. Pro only.
+* Fix: "Attached Post" could show internal WordPress records instead of a real post.
+
 = 2.3.0 (Sep 05, 2026)=
 * Feature: Compress Images — new page for compressing JPEG, PNG, and WebP images across your media library. Pro adds unlimited compression, original backups and restore, generated image sizes, custom quality, and automatic compression on upload.
 * Feature: Convert to WebP/AVIF — generate modern WebP copies alongside your originals without replacing them. Pro adds AVIF, unlimited conversion, generated image sizes, custom quality, and automatic conversion on upload.

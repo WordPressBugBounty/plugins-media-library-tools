@@ -2,14 +2,14 @@
 # This file is distributed under the GPLv3.
 msgid ""
 msgstr ""
-"Project-Id-Version: Media Library Tools - AI-Powered Rename, Clean & CSV Import/Export 2.3.0\n"
+"Project-Id-Version: Media Library Tools - AI-Powered Rename, Clean & CSV Import/Export 2.4.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/media-library-tools\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-04T18:01:42+00:00\n"
+"POT-Creation-Date: 2026-09-14T18:02:30+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: media-library-tools\n"
@@ -43,44 +43,44 @@ msgstr ""
 msgid "Dismiss"
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:154
+#: app/Controllers/Admin/Api.php:162
 msgid "Settings saved."
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:465
-#: app/Controllers/Admin/Api.php:578
+#: app/Controllers/Admin/Api.php:479
+#: app/Controllers/Admin/Api.php:592
 #: app/Modules/Rename/RenameModule.php:43
-#: app/Modules/Rename/RenameModule.php:152
-#: app/Modules/Rubbish/RubbishScanner.php:191
-#: app/Modules/Rubbish/RubbishScanner.php:210
+#: app/Modules/Rename/RenameModule.php:157
+#: app/Modules/Rubbish/RubbishScanner.php:192
+#: app/Modules/Rubbish/RubbishScanner.php:211
 msgid "Update failed. Please try to fix"
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:481
-#: app/Controllers/Admin/Api.php:577
+#: app/Controllers/Admin/Api.php:495
+#: app/Controllers/Admin/Api.php:591
 msgid "Updated. Be happy."
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:496
+#: app/Controllers/Admin/Api.php:510
 msgid "Done. Be happy."
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:510
+#: app/Controllers/Admin/Api.php:524
 msgid "Deleted. Be happy."
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:511
+#: app/Controllers/Admin/Api.php:525
 msgid "Deleted failed. Please try to fix"
 msgstr ""
 
-#: app/Controllers/Admin/Api.php:590
-#: app/Controllers/Admin/Api.php:600
+#: app/Controllers/Admin/Api.php:604
+#: app/Controllers/Admin/Api.php:614
 msgid "This feature requires the Pro plugin."
 msgstr ""
 
 #: app/Controllers/Admin/RegisterPostAndTax.php:45
 #: app/Controllers/Admin/RegisterPostAndTax.php:55
-#: app/Controllers/Hooks/FilterHooks.php:409
+#: app/Controllers/Hooks/FilterHooks.php:413
 msgid "Groups"
 msgstr ""
 
@@ -129,31 +129,45 @@ msgstr ""
 msgid "Media Tools Settings"
 msgstr ""
 
-#: app/Controllers/AI/AiApi.php:80
+#: app/Controllers/AI/AiApi.php:221
+#: app/Controllers/AI/AiApi.php:393
 msgid "Invalid parameters."
 msgstr ""
 
-#: app/Controllers/AI/AiApi.php:217
+#: app/Controllers/AI/AiApi.php:387
+msgid "Bulk AI generation requires Pro."
+msgstr ""
+
+#: app/Controllers/AI/AiApi.php:489
+#: app/Controllers/AI/AiApi.php:495
+msgid "The AI response could not be read."
+msgstr ""
+
+#: app/Controllers/AI/AiApi.php:515
+msgid "The AI response contained no usable values."
+msgstr ""
+
+#: app/Controllers/AI/AiApi.php:537
 msgid "OpenAI API key is not configured."
 msgstr ""
 
-#: app/Controllers/AI/AiApi.php:265
+#: app/Controllers/AI/AiApi.php:585
 msgid "Empty response from OpenAI."
 msgstr ""
 
-#: app/Controllers/AI/AiApi.php:283
+#: app/Controllers/AI/AiApi.php:603
 msgid "Gemini API key is not configured."
 msgstr ""
 
-#: app/Controllers/AI/AiApi.php:327
+#: app/Controllers/AI/AiApi.php:647
 msgid "Empty response from Gemini."
 msgstr ""
 
-#: app/Controllers/AI/AiApi.php:345
+#: app/Controllers/AI/AiApi.php:665
 msgid "Claude API key is not configured."
 msgstr ""
 
-#: app/Controllers/AI/AiApi.php:394
+#: app/Controllers/AI/AiApi.php:714
 msgid "Empty response from Claude."
 msgstr ""
 
@@ -234,7 +248,7 @@ msgid "After"
 msgstr ""
 
 #: app/Controllers/Hooks/ActionHooks.php:415
-#: app/Controllers/Hooks/FilterHooks.php:410
+#: app/Controllers/Hooks/FilterHooks.php:414
 #: app/Modules/ExifData/ExifDataReader.php:500
 msgid "Camera"
 msgstr ""
@@ -321,83 +335,83 @@ msgstr ""
 msgid "Malformed request payload."
 msgstr ""
 
-#: app/Controllers/Hooks/Ajax.php:740
-#: app/Controllers/Hooks/Ajax.php:759
-#: app/Controllers/Hooks/Ajax.php:778
+#: app/Controllers/Hooks/Ajax.php:742
+#: app/Controllers/Hooks/Ajax.php:761
+#: app/Controllers/Hooks/Ajax.php:780
 msgid "No IDs provided."
 msgstr ""
 
-#: app/Controllers/Hooks/Ajax.php:895
-#: app/Controllers/Hooks/Ajax.php:974
-#: app/Controllers/Hooks/Ajax.php:987
+#: app/Controllers/Hooks/Ajax.php:897
+#: app/Controllers/Hooks/Ajax.php:976
+#: app/Controllers/Hooks/Ajax.php:989
 msgid "Missing attachment_id."
 msgstr ""
 
 #. translators: file size
-#: app/Controllers/Hooks/FilterHooks.php:231
+#: app/Controllers/Hooks/FilterHooks.php:235
 #, php-format
 msgid "The uploaded SVG exceeds the maximum allowed file size of %s."
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:244
+#: app/Controllers/Hooks/FilterHooks.php:248
 msgid "Unable to read the uploaded SVG file."
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:250
+#: app/Controllers/Hooks/FilterHooks.php:254
 msgid "This SVG file contains unsafe content and cannot be uploaded."
 msgstr ""
 
 #. translators: %s: Attachment title.
-#: app/Controllers/Hooks/FilterHooks.php:329
+#: app/Controllers/Hooks/FilterHooks.php:333
 #, php-format
 msgid "Move &#8220;%s&#8221; to the Trash"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:330
+#: app/Controllers/Hooks/FilterHooks.php:334
 msgctxt "verb"
 msgid "Trash"
 msgstr ""
 
 #. translators: %s: Attachment title.
-#: app/Controllers/Hooks/FilterHooks.php:338
+#: app/Controllers/Hooks/FilterHooks.php:342
 #, php-format
 msgid "Delete &#8220;%s&#8221; permanently"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:339
+#: app/Controllers/Hooks/FilterHooks.php:343
 msgid "Delete Permanently"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:406
+#: app/Controllers/Hooks/FilterHooks.php:410
 msgid "Alt"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:407
+#: app/Controllers/Hooks/FilterHooks.php:411
 msgid "Caption"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:408
+#: app/Controllers/Hooks/FilterHooks.php:412
 #: app/Modules/ExifData/ExifDataReader.php:170
 msgid "Description"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:411
+#: app/Controllers/Hooks/FilterHooks.php:415
 msgid "Dimensions"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:476
+#: app/Controllers/Hooks/FilterHooks.php:480
 msgid "Settings"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:478
+#: app/Controllers/Hooks/FilterHooks.php:482
 msgid "Go Pro"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:493
+#: app/Controllers/Hooks/FilterHooks.php:497
 msgid "Facing issue?"
 msgstr ""
 
-#: app/Controllers/Hooks/FilterHooks.php:493
+#: app/Controllers/Hooks/FilterHooks.php:497
 msgid "Please open a support ticket."
 msgstr ""
 
@@ -998,89 +1012,89 @@ msgstr ""
 msgid "Rename failed. Please try again."
 msgstr ""
 
-#: app/Modules/Rename/RenameModule.php:98
+#: app/Modules/Rename/RenameModule.php:103
 msgid "Renamed."
 msgstr ""
 
-#: app/Modules/Rename/RenameModule.php:100
+#: app/Modules/Rename/RenameModule.php:105
 msgid "Rename failed. The file may not exist or file permissions may be incorrect."
 msgstr ""
 
-#: app/Modules/Rename/RenameModule.php:119
+#: app/Modules/Rename/RenameModule.php:124
 msgid "Update failed."
 msgstr ""
 
-#: app/Modules/Rename/RenameModule.php:138
-#: app/Modules/Rename/RenameModule.php:151
-#: app/Modules/Rename/RenameModule.php:171
+#: app/Modules/Rename/RenameModule.php:143
+#: app/Modules/Rename/RenameModule.php:156
+#: app/Modules/Rename/RenameModule.php:176
 msgid "Saved."
 msgstr ""
 
-#: app/Modules/Rename/RenameModule.php:168
+#: app/Modules/Rename/RenameModule.php:173
 msgid "The Title has been saved."
 msgstr ""
 
-#: app/Modules/Rename/RenameModule.php:169
+#: app/Modules/Rename/RenameModule.php:174
 msgid "The Caption has been saved."
 msgstr ""
 
-#: app/Modules/Rename/RenameModule.php:170
+#: app/Modules/Rename/RenameModule.php:175
 msgid "Content has been saved."
 msgstr ""
 
-#: app/Modules/Rename/RenameModule.php:195
+#: app/Modules/Rename/RenameModule.php:200
 msgid "Groups have been saved."
 msgstr ""
 
-#: app/Modules/Rename/RenameModule.php:216
+#: app/Modules/Rename/RenameModule.php:221
 msgid "Update failed. Please try to fix."
 msgstr ""
 
-#: app/Modules/Rubbish/RubbishScanner.php:74
+#: app/Modules/Rubbish/RubbishScanner.php:75
 msgid "Scan started. Directories will be processed in the background."
 msgstr ""
 
-#: app/Modules/Rubbish/RubbishScanner.php:156
+#: app/Modules/Rubbish/RubbishScanner.php:157
 msgid "Schedule Will Execute Soon."
 msgstr ""
 
-#: app/Modules/Rubbish/RubbishScanner.php:161
+#: app/Modules/Rubbish/RubbishScanner.php:162
 msgid "Schedule Will Execute Soon For Directory List."
 msgstr ""
 
-#: app/Modules/Rubbish/RubbishScanner.php:210
+#: app/Modules/Rubbish/RubbishScanner.php:211
 msgid "Done, Be happy."
 msgstr ""
 
-#: app/Modules/Rubbish/RubbishScanner.php:222
+#: app/Modules/Rubbish/RubbishScanner.php:223
 msgid "Background scan cancelled."
 msgstr ""
 
-#: app/Modules/Rubbish/RubbishScanner.php:890
+#: app/Modules/Rubbish/RubbishScanner.php:998
 msgid "Delete failed."
 msgstr ""
 
-#: app/Modules/Rubbish/RubbishScanner.php:898
+#: app/Modules/Rubbish/RubbishScanner.php:1006
 msgid "No directory specified."
 msgstr ""
 
-#: app/Modules/Rubbish/RubbishScanner.php:909
+#: app/Modules/Rubbish/RubbishScanner.php:1017
 msgid "Invalid directory path."
 msgstr ""
 
-#: app/Modules/Rubbish/RubbishScanner.php:915
+#: app/Modules/Rubbish/RubbishScanner.php:1023
 msgid "Path is not a directory."
 msgstr ""
 
-#: app/Modules/Rubbish/RubbishScanner.php:923
+#: app/Modules/Rubbish/RubbishScanner.php:1031
 msgid "Directory is not empty."
 msgstr ""
 
-#: app/Modules/Rubbish/RubbishScanner.php:934
+#: app/Modules/Rubbish/RubbishScanner.php:1042
 msgid "Empty directory deleted successfully."
 msgstr ""
 
-#: app/Modules/Rubbish/RubbishScanner.php:936
+#: app/Modules/Rubbish/RubbishScanner.php:1044
 msgid "Could not delete directory. Check file permissions."
 msgstr ""
 
